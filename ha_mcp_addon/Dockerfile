@@ -8,7 +8,5 @@ RUN pip3 install --no-cache-dir --break-system-packages /tmp/package && \
     rm -rf /tmp/package
 
 COPY www /www
-COPY run.sh /run.sh
-RUN chmod +x /run.sh
-
-CMD ["/run.sh"]
+COPY run.sh /etc/services.d/ha-mcp/run
+RUN chmod +x /etc/services.d/ha-mcp/run
