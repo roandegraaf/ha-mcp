@@ -1,0 +1,7 @@
+configuration:
+  transport:
+    name: Transport
+    description: "MCP transport protocol (http supports both streamable-HTTP and SSE fallback)"
+  log_level:
+    name: Log Level
+    description: "Server logging level"

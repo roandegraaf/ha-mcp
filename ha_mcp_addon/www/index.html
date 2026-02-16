@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP Server — Connection Guide</title>
+<style>
+  :root {
+    --accent: #03a9f4;
+    --accent-dark: #0288d1;
+    --bg: #fafafa;
+    --surface: #fff;
+    --text: #212121;
+    --text-secondary: #757575;
+    --border: #e0e0e0;
+    --code-bg: #f5f5f5;
+    --success: #4caf50;
+    --radius: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --text: #e0e0e0;
+      --text-secondary: #9e9e9e;
+      --border: #2a2a4a;
+      --code-bg: #0f3460;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 24px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--accent);
+  }
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+  .hostname-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .hostname-bar label {
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .hostname-bar input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.95rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+  .hostname-bar .url-preview {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    width: 100%;
+  }
+  .hostname-bar .url-preview code {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .cards { display: grid; gap: 16px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .card-header:hover { background: var(--bg); }
+  .card-title {
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .card-meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+  .card-body {
+    padding: 16px;
+    display: none;
+  }
+  .card.open .card-body { display: block; }
+  .card-body .hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .card-body .prereq {
+    font-size: 0.8rem;
+    color: var(--accent-dark);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    display: inline-block;
+  }
+  .code-block {
+    position: relative;
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 14px;
+    overflow-x: auto;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .copy-btn:hover { background: var(--accent-dark); }
+  .copy-btn.copied { background: var(--success); }
+  .note {
+    margin-top: 24px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+  .note strong { color: var(--text); }
+  .chevron {
+    transition: transform 0.2s;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+  .card.open .chevron { transform: rotate(90deg); }
+</style>
+</head>
+<body>
+
+<h1>MCP Server &mdash; Connection Guide</h1>
+<p class="subtitle">Copy a config snippet below to connect your MCP client to this Home Assistant instance.</p>
+
+<div class="hostname-bar">
+  <label for="hostname">Hostname / IP:</label>
+  <input type="text" id="hostname" placeholder="homeassistant.local">
+  <div class="url-preview">Server URL: <code id="url-preview">http://homeassistant.local:8099/mcp/</code></div>
+</div>
+
+<div class="cards" id="cards"></div>
+
+<div class="note">
+  <strong>Network access:</strong> The MCP server listens on port 8099. Your MCP client must be able to reach this address.
+  If connecting from outside your local network, configure port forwarding or a reverse proxy with HTTPS.
+  Some clients (like web-based ones) may block mixed HTTP/HTTPS content &mdash; use HTTPS on both ends in that case.
+</div>
+
+<script>
+(function() {
+  const hostnameInput = document.getElementById('hostname');
+  const urlPreview = document.getElementById('url-preview');
+  const cardsContainer = document.getElementById('cards');
+
+  // Auto-detect hostname: use the browser's current hostname
+  const detectedHost = window.location.hostname || 'homeassistant.local';
+  hostnameInput.value = detectedHost;
+
+  function getUrl() {
+    const h = hostnameInput.value.trim() || 'homeassistant.local';
+    return 'http://' + h + ':8099/mcp/';
+  }
+
+  function updateAll() {
+    const url = getUrl();
+    urlPreview.textContent = url;
+    renderCards(url);
+  }
+
+  hostnameInput.addEventListener('input', updateAll);
+
+  function clientConfigs(url) {
+    return [
+      {
+        title: 'Claude Code',
+        meta: '.mcp.json (project root)',
+        hint: 'Add to your project\'s .mcp.json file:',
+        config: JSON.stringify({ mcpServers: { "home-assistant": { url: url } } }, null, 2)
+      },
+      {
+        title: 'Claude Desktop',
+        meta: 'claude_desktop_config.json',
+        hint: 'Add to claude_desktop_config.json (Settings > Developer > Edit Config):',
+        prereq: 'Requires Node.js (for npx)',
+        config: JSON.stringify({ mcpServers: { "home-assistant": { command: "npx", args: ["mcp-remote", url] } } }, null, 2)
+      },
+      {
+        title: 'Cursor',
+        meta: '.cursor/mcp.json',
+        hint: 'Add to .cursor/mcp.json in your project:',
+        config: JSON.stringify({ mcpServers: { "home-assistant": { url: url } } }, null, 2)
+      },
+      {
+        title: 'Windsurf',
+        meta: '~/.codeium/windsurf/mcp_config.json',
+        hint: 'Add to ~/.codeium/windsurf/mcp_config.json:',
+        config: JSON.stringify({ mcpServers: { "home-assistant": { serverUrl: url } } }, null, 2)
+      },
+      {
+        title: 'VS Code + Continue',
+        meta: '.continue/config.yaml',
+        hint: 'Add to your .continue/config.yaml:',
+        config: 'mcpServers:\n  - name: home-assistant\n    uri: ' + url
+      },
+      {
+        title: 'Generic / Raw URL',
+        meta: 'Any MCP client',
+        hint: 'Use this URL in any MCP client that supports HTTP transport:',
+        config: url
+      }
+    ];
+  }
+
+  function renderCards(url) {
+    const configs = clientConfigs(url);
+    // Preserve which cards are open
+    const openState = {};
+    cardsContainer.querySelectorAll('.card').forEach((c, i) => {
+      openState[i] = c.classList.contains('open');
+    });
+
+    cardsContainer.innerHTML = '';
+    configs.forEach((cfg, i) => {
+      const card = document.createElement('div');
+      card.className = 'card' + (openState[i] ? ' open' : '');
+
+      const header = document.createElement('div');
+      header.className = 'card-header';
+      header.innerHTML = '<div><span class="card-title">' + cfg.title + '</span><br><span class="card-meta">' + cfg.meta + '</span></div><span class="chevron">&#9654;</span>';
+      header.addEventListener('click', function() {
+        card.classList.toggle('open');
+      });
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+
+      let bodyHTML = '<div class="hint">' + cfg.hint + '</div>';
+      if (cfg.prereq) {
+        bodyHTML += '<div class="prereq">' + cfg.prereq + '</div>';
+      }
+      bodyHTML += '<div class="code-block"><button class="copy-btn" data-config="' + i + '">Copy</button><code></code></div>';
+      body.innerHTML = bodyHTML;
+      body.querySelector('code').textContent = cfg.config;
+
+      card.appendChild(header);
+      card.appendChild(body);
+      cardsContainer.appendChild(card);
+    });
+  }
+
+  // Copy to clipboard
+  cardsContainer.addEventListener('click', function(e) {
+    if (!e.target.classList.contains('copy-btn')) return;
+    const codeEl = e.target.parentElement.querySelector('code');
+    const text = codeEl.textContent;
+    navigator.clipboard.writeText(text).then(function() {
+      e.target.textContent = 'Copied!';
+      e.target.classList.add('copied');
+      setTimeout(function() {
+        e.target.textContent = 'Copy';
+        e.target.classList.remove('copied');
+      }, 2000);
+    });
+  });
+
+  // Initial render
+  updateAll();
+})();
+</script>
+
+</body>
+</html>
