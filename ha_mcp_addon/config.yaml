@@ -7,7 +7,6 @@ url: "https://github.com/roandegraaf/ha-mcp"
 arch:
   - amd64
   - aarch64
-  - armv7
 homeassistant_api: true
 ingress: true
 ingress_port: 8100
