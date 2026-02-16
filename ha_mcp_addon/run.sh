@@ -5,7 +5,11 @@ TRANSPORT=$(bashio::config 'transport')
 LOG_LEVEL=$(bashio::config 'log_level')
 
 # Get Supervisor token for HA API access
-HA_TOKEN="${SUPERVISOR_TOKEN}"
+HA_TOKEN="${SUPERVISOR_TOKEN:-}"
+if [ -z "${HA_TOKEN}" ]; then
+    bashio::log.fatal "SUPERVISOR_TOKEN not available. Ensure homeassistant_api is enabled."
+    exit 1
+fi
 HA_URL="http://supervisor/core"
 
 # Export environment variables for the MCP server
