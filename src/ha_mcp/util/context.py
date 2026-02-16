@@ -6,6 +6,7 @@ def get_clients(ctx) -> tuple:
 
     Returns (ws_client, rest_client) tuple.
     """
-    ws = ctx.lifespan_context["ws"]
-    rest = ctx.lifespan_context["rest"]
+    lifespan_result = ctx.fastmcp._lifespan_result
+    ws = lifespan_result["ws"]
+    rest = lifespan_result["rest"]
     return ws, rest
