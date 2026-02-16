@@ -1,6 +1,6 @@
 name: "Home Assistant MCP Server"
 description: "MCP server for AI-powered Home Assistant configuration management"
-version: "0.1.5"
+version: "0.1.6"
 slug: ha_mcp
 image: "ghcr.io/roandegraaf/ha-mcp-{arch}"
 url: "https://github.com/roandegraaf/ha-mcp"
@@ -8,8 +8,6 @@ arch:
   - amd64
   - aarch64
 homeassistant_api: true
-hassio_api: true
-auth_api: true
 init: false
 ingress: true
 ingress_port: 8100
