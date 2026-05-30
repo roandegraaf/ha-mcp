@@ -1,20 +1,35 @@
 # Home Assistant MCP Server
 
 An MCP (Model Context Protocol) server that gives AI assistants
-the ability to manage Home Assistant configurations. It provides
-tools for reading device and entity states, creating and editing
-automations, scripts, scenes, helpers, dashboards, and blueprints,
-and suggesting missing automations based on your setup.
+the ability to manage Home Assistant. It provides tools for reading
+device and entity states, creating and editing automations, scripts,
+scenes, helpers, dashboards, and blueprints, organising the
+device/entity/area/floor/label registries, managing integrations and
+backups, controlling devices, and suggesting missing automations
+based on your setup.
 
-> **Note:** This server manages *configurations* only. It doesn't
-> directly control devices (for example, turning lights on or off).
-> All configuration changes go through a dry-run and confirm flow
-> so you can review changes before they are applied.
+> **Note:** All mutating actions -- configuration changes, registry
+> edits, integration reloads, backups, restarts, and device control --
+> go through a dry-run and confirm flow so you can review what will
+> happen before it is applied.
 
 ## Features
 
 - **Registry queries** -- list and search devices, entities, areas,
   floors, and labels
+- **Registry editing** -- create/update/delete areas, floors, and
+  labels; rename entities and devices, assign them to areas, attach
+  labels, and hide/disable them
+- **Device control** -- call any Home Assistant service to actuate
+  devices (turn lights on/off, set a thermostat, run a script)
+- **Integration management** -- list, reload, and enable/disable
+  configured integrations (config entries)
+- **Backups** -- list existing backups and create a new full backup
+- **System control** -- reload a config domain, restart core (with a
+  config check first), inspect core config, system health, and the
+  available services
+- **Live events** -- listen to Home Assistant events for a bounded
+  window (e.g. to watch what a device does)
 - **State inspection** -- read entity states, history, logbook
   entries, error logs, and render Jinja2 templates
 - **Automation management** -- full CRUD, toggle, duplicate, and

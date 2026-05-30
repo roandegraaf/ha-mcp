@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 ## Project
-MCP server for Home Assistant configuration management. Python package at `src/ha_mcp/`, distributed as an HA add-on (`ha_mcp_addon/`) and via pip.
+MCP server for managing Home Assistant — config CRUD, registry read/write, device control, integrations, backups, and system control. Python package at `src/ha_mcp/`, distributed as an HA add-on (`ha_mcp_addon/`) and via pip.
 
 ## Key Architecture
 - **FastMCP v2.x** — decorators: `@mcp.tool()`, `@mcp.prompt()`, `@mcp.resource()`
@@ -36,4 +36,8 @@ MCP server for Home Assistant configuration management. Python package at `src/h
 - Circular import: `server.py` imports tools → tools must NOT import from `server.py` → use `util/context.py`
 
 ## Counts
-- 54 tools, 6 prompts, 1 resource template, 34 source files
+- 78 tools, 6 prompts, 1 resource template, 40 source files
+- Tools span config CRUD (automation/script/scene/helper/dashboard/blueprint),
+  registry read + write (area/floor/label/entity/device), state/history,
+  device control (`call_service`), integrations, backups, system reload/restart,
+  and bounded live-event listening (`listen_events`).

@@ -31,6 +31,7 @@ class HAWebSocketClient:
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._msg_id: int = 0
         self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        self._subscriptions: dict[int, asyncio.Queue[dict[str, Any]]] = {}
         self._listener_task: asyncio.Task[None] | None = None
         self._connected: bool = False
         self._semaphore = asyncio.Semaphore(10)
@@ -93,6 +94,7 @@ class HAWebSocketClient:
                     HAConnectionLost("WebSocket disconnected while awaiting response")
                 )
         self._pending.clear()
+        self._subscriptions.clear()
 
         logger.info("Disconnected from Home Assistant WebSocket API")
 
@@ -155,6 +157,90 @@ class HAWebSocketClient:
 
             return response.get("result", response)
 
+    async def subscribe(
+        self, msg_type: str, *, timeout: float = 10.0, **kwargs: Any
+    ) -> tuple[int, asyncio.Queue[dict[str, Any]]]:
+        """Start an event subscription and return its id and an event queue.
+
+        Sends a subscription command (e.g. ``subscribe_events`` or
+        ``subscribe_trigger``), waits for the initial success acknowledgement,
+        and returns ``(subscription_id, queue)``. Subsequent ``event`` messages
+        carrying the same id are pushed onto *queue* by the background listener.
+
+        The caller is responsible for calling :meth:`unsubscribe` when finished.
+
+        Args:
+            msg_type: The subscription command type.
+            timeout: Maximum seconds to wait for the initial acknowledgement.
+            **kwargs: Additional key/value pairs merged into the outgoing message.
+
+        Returns:
+            A ``(subscription_id, queue)`` tuple.
+
+        Raises:
+            HAConnectionError: If the client is not connected or the command fails.
+            HAConnectionLost: If the connection drops while subscribing.
+            asyncio.TimeoutError: If no acknowledgement arrives within *timeout*.
+        """
+        if not self._connected or self._ws is None or self._ws.closed:
+            raise HAConnectionError("Not connected to Home Assistant")
+
+        async with self._semaphore:
+            # Increment and capture the id with no await in between so concurrent
+            # callers can never collide on the same message id.
+            self._msg_id += 1
+            msg_id = self._msg_id
+
+            loop = asyncio.get_running_loop()
+            queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+            future: asyncio.Future[dict[str, Any]] = loop.create_future()
+            # Register the queue *before* sending so no event can be missed
+            # between the ack and the first event.
+            self._subscriptions[msg_id] = queue
+            self._pending[msg_id] = future
+
+            message: dict[str, Any] = {"id": msg_id, "type": msg_type, **kwargs}
+
+            try:
+                await self._ws.send_json(message)
+                logger.debug("Sent subscription id=%d type=%s", msg_id, msg_type)
+            except Exception as exc:
+                self._pending.pop(msg_id, None)
+                self._subscriptions.pop(msg_id, None)
+                raise HAConnectionLost(f"Failed to send subscription: {exc}") from exc
+
+            try:
+                response = await asyncio.wait_for(future, timeout=timeout)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                self._pending.pop(msg_id, None)
+                self._subscriptions.pop(msg_id, None)
+                raise
+
+            if not response.get("success", True):
+                self._subscriptions.pop(msg_id, None)
+                error = response.get("error", {})
+                code = error.get("code", "unknown")
+                error_message = error.get("message", "Unknown error")
+                raise HAConnectionError(
+                    f"Subscription {msg_type} failed [{code}]: {error_message}"
+                )
+
+            return msg_id, queue
+
+    async def unsubscribe(self, subscription_id: int) -> None:
+        """Stop an active subscription.
+
+        Tolerant of failure: a reconnect may already have dropped the
+        server-side subscription, so errors here are logged and swallowed.
+        """
+        self._subscriptions.pop(subscription_id, None)
+        try:
+            await self.send_command(
+                "unsubscribe_events", subscription=subscription_id
+            )
+        except Exception as exc:  # noqa: BLE001 - best effort cleanup
+            logger.debug("unsubscribe(%d) ignored error: %s", subscription_id, exc)
+
     @property
     def connected(self) -> bool:  # noqa: D401
         """Whether the client currently has an active connection."""
@@ -208,9 +294,15 @@ class HAWebSocketClient:
                         future = self._pending.pop(msg_id)
                         if not future.done():
                             future.set_result(msg)
+                    elif msg.get("type") == "event" and msg_id in self._subscriptions:
+                        # Route subscription events to the registered queue.
+                        self._subscriptions[msg_id].put_nowait(msg.get("event", {}))
                     elif msg.get("type") == "event":
-                        # Event messages (subscriptions) - log for now.
-                        logger.debug("Received event: %s", msg.get("event", {}).get("event_type"))
+                        logger.debug(
+                            "Unhandled event for id=%s: %s",
+                            msg_id,
+                            msg.get("event", {}).get("event_type"),
+                        )
                     else:
                         logger.debug("Unhandled message: %s", msg)
                 elif raw_msg.type in (
@@ -241,6 +333,7 @@ class HAWebSocketClient:
                     HAConnectionLost("Connection lost while awaiting response")
                 )
         self._pending.clear()
+        self._subscriptions.clear()
 
         if self._should_reconnect:
             await self._reconnect()

@@ -170,6 +170,37 @@ class HARestClient:
         """POST /api/config/core/check_config – validate HA configuration."""
         return await self._request("POST", "/api/config/core/check_config")
 
+    async def get_config(self) -> dict:
+        """GET /api/config – return core configuration (version, components, units)."""
+        return await self._request("GET", "/api/config")
+
+    async def get_services(self) -> list[dict]:
+        """GET /api/services – return all available service domains and services."""
+        return await self._request("GET", "/api/services")
+
+    # ------------------------------------------------------------------
+    # Config entries (integrations)
+    # ------------------------------------------------------------------
+
+    async def reload_config_entry(self, entry_id: str) -> dict:
+        """POST /api/config/config_entries/entry/{entry_id}/reload."""
+        return await self._request(
+            "POST", f"/api/config/config_entries/entry/{entry_id}/reload"
+        )
+
+    async def set_config_entry_disabled(
+        self, entry_id: str, disabled_by: str | None
+    ) -> dict:
+        """POST /api/config/config_entries/entry/{entry_id}/disable.
+
+        Pass ``disabled_by="user"`` to disable, or ``None`` to (re-)enable.
+        """
+        return await self._request(
+            "POST",
+            f"/api/config/config_entries/entry/{entry_id}/disable",
+            json={"disabled_by": disabled_by},
+        )
+
     # ------------------------------------------------------------------
     # Automation CRUD
     # ------------------------------------------------------------------
