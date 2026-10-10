@@ -45,6 +45,12 @@ based on your setup.
   or scripts from blueprints
 - **Configuration validation** -- validate automation configs,
   check HA core configuration, and validate YAML syntax
+- **Configuration file access** *(optional, off by default)* -- browse
+  and read raw configuration files (`configuration.yaml`, packages, templates)
+  with strict path traversal sandboxing and secrets protection
+- **'ha' CLI & Supervisor commands** *(optional, off by default)* -- execute
+  Home Assistant CLI commands and direct Supervisor API endpoints with dry-run
+  safety confirmation for mutating operations
 - **Proactive suggestions** -- analyze device coverage, suggest
   automations, detect conflicts, and suggest dashboard layouts
 - **Guided workflows** -- six prompt templates for common tasks
@@ -236,6 +242,11 @@ automatically -- you only need these for the pip install method.
 | `HA_MCP_PORT` | `8099` | Port to bind when using `http` transport |
 | `HA_MCP_SKIP_CONFIRM_DEFAULT` | `false` | Skip confirmation prompts when the client doesn't support elicitation |
 | `HA_MCP_LOG_LEVEL` | `INFO` | Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `HA_MCP_ENABLE_CONFIG_FILES` | `false` | Enable configuration file browsing and reading tools |
+| `HA_MCP_ENABLE_HA_CLI` | `false` | Enable 'ha' CLI and Supervisor execution tools |
+| `HA_MCP_CONFIG_DIR` | `/homeassistant` | Path to Home Assistant configuration directory |
+| `HA_MCP_HA_CLI_PATH` | `/usr/bin/ha` | Path to the 'ha' CLI binary |
+| `HA_MCP_SUPERVISOR_URL` | `http://supervisor` | Base URL for the Supervisor REST API |
 
 For detailed configuration guidance, see
 [docs/configuration.md](docs/configuration.md).
@@ -244,7 +255,7 @@ For detailed configuration guidance, see
 
 - [Configuration](docs/configuration.md) -- environment variables,
   transport options, and client setup
-- [Tools reference](docs/tools.md) -- all 54 MCP tools with
+- [Tools reference](docs/tools.md) -- all 86 MCP tools with
   parameters and descriptions
 - [Prompts reference](docs/prompts.md) -- guided workflow
   templates

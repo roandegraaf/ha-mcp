@@ -15,9 +15,13 @@ fi
 if [ -f /data/options.json ]; then
     TRANSPORT=$(python3 -c "import json; print(json.load(open('/data/options.json')).get('transport', 'http'))")
     LOG_LEVEL=$(python3 -c "import json; print(json.load(open('/data/options.json')).get('log_level', 'INFO'))")
+    ENABLE_CONFIG_FILES=$(python3 -c "import json; print(str(json.load(open('/data/options.json')).get('enable_config_files', False)).lower())")
+    ENABLE_HA_CLI=$(python3 -c "import json; print(str(json.load(open('/data/options.json')).get('enable_ha_cli', False)).lower())")
 else
     TRANSPORT="http"
     LOG_LEVEL="INFO"
+    ENABLE_CONFIG_FILES="false"
+    ENABLE_HA_CLI="false"
 fi
 
 # Get Supervisor token for HA API access
@@ -36,10 +40,16 @@ export HA_MCP_PORT=8099
 export HA_MCP_LOG_LEVEL="${LOG_LEVEL}"
 export HA_MCP_STATELESS_HTTP="true"
 export FASTMCP_STATELESS_HTTP="true"
+export HA_MCP_ENABLE_CONFIG_FILES="${ENABLE_CONFIG_FILES}"
+export HA_MCP_ENABLE_HA_CLI="${ENABLE_HA_CLI}"
+export HA_MCP_CONFIG_DIR="/homeassistant"
+export SUPERVISOR="http://supervisor"
 
 echo "[INFO] Starting Home Assistant MCP Server..."
 echo "[INFO] Transport: ${TRANSPORT}"
 echo "[INFO] Log Level: ${LOG_LEVEL}"
+echo "[INFO] Enable Config Files: ${ENABLE_CONFIG_FILES}"
+echo "[INFO] Enable 'ha' CLI: ${ENABLE_HA_CLI}"
 
 # Start the ingress web UI server in background
 python3 -m http.server 8100 --directory /www &

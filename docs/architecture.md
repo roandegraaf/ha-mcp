@@ -17,8 +17,9 @@ src/ha_mcp/
 │   ├── websocket.py     # Persistent WebSocket client
 │   └── rest.py          # REST API client
 ├── tools/
-│   ├── __init__.py      # register_all_tools aggregator
-│   ├── registry.py      # Device, entity, area, floor, label queries
+│   ├── __init__.py      # register_all_tools aggregator (with conditional toggles)
+│   ├── registry.py      # Device, entity, area, floor, label, category queries
+│   ├── registry_edit.py # Area, floor, label, category, device, entity mutations
 │   ├── state.py         # State, history, logbook, templates
 │   ├── automation.py    # Automation CRUD
 │   ├── script.py        # Script CRUD
@@ -27,7 +28,14 @@ src/ha_mcp/
 │   ├── dashboard.py     # Lovelace dashboard management
 │   ├── blueprint.py     # Blueprint management
 │   ├── config_validation.py  # Config and YAML validation
-│   └── suggestions.py   # Proactive analysis and suggestions
+│   ├── suggestions.py   # Proactive analysis and suggestions
+│   ├── system.py        # System utilities, health, services, reload, restart
+│   ├── integration.py   # Integration config entry management
+│   ├── backup.py        # Backup listing and creation
+│   ├── control.py       # Device control via call_service
+│   ├── events.py        # Bounded live event stream listening
+│   ├── config_files.py  # Configuration file browsing and reading
+│   └── ha_cli.py        # 'ha' CLI and Supervisor command execution
 ├── prompts/
 │   └── prompts.py       # MCP prompt templates
 ├── resources/

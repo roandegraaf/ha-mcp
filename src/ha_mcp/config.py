@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     skip_confirm_default: bool = False
     log_level: str = "INFO"
     stateless_http: bool = True
+    enable_config_files: bool = False
+    enable_ha_cli: bool = False
+    config_dir: str = "/homeassistant"
+    ha_cli_path: str = "/usr/bin/ha"
+    supervisor_url: str = "http://supervisor"
 
     model_config = SettingsConfigDict(env_prefix="HA_MCP_")
 
@@ -53,6 +58,21 @@ class Settings(BaseSettings):
         parsed = urlparse(self.ha_base_url)
         scheme = "wss" if parsed.scheme == "https" else "ws"
         return f"{scheme}://{parsed.netloc}{parsed.path}/api/websocket"
+
+    @property
+    def effective_config_dir(self) -> str | None:
+        """Resolve the effective configuration directory.
+
+        Checks explicit config_dir, then fallback paths (/homeassistant, /config).
+        Returns None if no directory exists.
+        """
+        import os
+
+        candidates = [self.config_dir, "/homeassistant", "/config"]
+        for path in candidates:
+            if path and os.path.isdir(path):
+                return os.path.realpath(path)
+        return None
 
 
 settings = Settings()

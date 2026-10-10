@@ -1,6 +1,6 @@
 # Tools reference
 
-Home Assistant MCP Server exposes 54 tools organized into 10
+Home Assistant MCP Server exposes 86 tools organized into 12
 categories. Each tool accepts a `ctx` parameter automatically
 provided by the MCP framework -- you don't need to supply it.
 
@@ -44,6 +44,14 @@ List all floors. No parameters.
 ### `list_labels`
 
 List all labels. No parameters.
+
+### `list_categories`
+
+List categories defined in Home Assistant.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `scope` | `string` | No | Scope to list categories for: 'automation', 'script', 'scene', 'helpers'. Omit to list all scopes. |
 
 ### `get_entity_details`
 
@@ -527,3 +535,91 @@ organized by area and domain with appropriate card types.
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `area_id` | `string` | No | Focus suggestions on a specific area |
+
+## Category registry tools
+
+Tools for creating, updating, and deleting categories within Home Assistant registries.
+
+### `create_category`
+
+Create a new category in a specific scope.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `scope` | `string` | Yes | Target scope: `automation`, `script`, `scene`, `helpers` |
+| `name` | `string` | Yes | Category display name |
+| `icon` | `string` | No | MDI icon (e.g. `mdi:lightbulb`) |
+| `skip_confirm` | `boolean` | No | Skip confirmation prompt (default: `false`) |
+
+### `update_category`
+
+Update an existing category's name or icon.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `scope` | `string` | Yes | Scope of the category |
+| `category_id` | `string` | Yes | ID of the category to update |
+| `name` | `string` | No | New display name |
+| `icon` | `string` | No | New MDI icon |
+| `skip_confirm` | `boolean` | No | Skip confirmation prompt (default: `false`) |
+
+### `delete_category`
+
+Delete a category definition from a registry scope.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `scope` | `string` | Yes | Scope of the category |
+| `category_id` | `string` | Yes | ID of the category to delete |
+| `skip_confirm` | `boolean` | No | Skip confirmation prompt (default: `false`) |
+
+## Configuration file tools
+
+Tools for browsing and reading Home Assistant configuration files safely.
+*Note:* These tools are disabled by default. Enable them via the add-on Configuration GUI (`enable_config_files`) or `HA_MCP_ENABLE_CONFIG_FILES=true`.
+
+### `list_config_files`
+
+Browse and list configuration files in the Home Assistant configuration directory.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `subpath` | `string` | No | Relative subpath within config directory (e.g. `packages`) |
+| `pattern` | `string` | No | Glob pattern to filter files (default: `*`) |
+| `recursive` | `boolean` | No | Recurse into subdirectories (default: `false`) |
+
+### `get_config_file`
+
+Read the content of a configuration file in Home Assistant.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `path` | `string` | Yes | Relative path to configuration file (e.g. `configuration.yaml`) |
+| `redact_secrets` | `boolean` | No | Redact sensitive API keys and passwords (default: `true`) |
+| `allow_secrets_file` | `boolean` | No | Allow reading `secrets.yaml` (default: `false`) |
+
+## HA CLI & Supervisor tools
+
+Tools for running Home Assistant CLI commands and interacting with the Supervisor.
+*Note:* These tools are disabled by default. Enable them via the add-on Configuration GUI (`enable_ha_cli`) or `HA_MCP_ENABLE_HA_CLI=true`.
+
+### `run_ha_command`
+
+Execute a Home Assistant CLI (`ha`) command. Mutating commands trigger a confirmation prompt.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `command` | `string` | Yes | The CLI command to run (e.g. `core check`, `host info`, `supervisor reload`) |
+| `raw_json` | `boolean` | No | Request raw JSON output from the command where supported (default: `true`) |
+| `skip_confirm` | `boolean` | No | Skip confirmation prompt for mutating commands (default: `false`) |
+
+### `call_supervisor_api`
+
+Call a Home Assistant Supervisor REST / WebSocket API endpoint directly.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `endpoint` | `string` | Yes | Supervisor endpoint path (e.g. `/core/info`, `/host/info`) |
+| `method` | `string` | No | HTTP method: `GET`, `POST` (default: `GET`) |
+| `data` | `object` | No | Request payload dictionary |
+| `skip_confirm` | `boolean` | No | Skip confirmation prompt for non-GET calls (default: `false`) |

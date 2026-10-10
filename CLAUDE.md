@@ -36,8 +36,11 @@ MCP server for managing Home Assistant — config CRUD, registry read/write, dev
 - Circular import: `server.py` imports tools → tools must NOT import from `server.py` → use `util/context.py`
 
 ## Counts
-- 82 tools, 6 prompts, 1 resource template, 40 source files
+- 86 tools (82 core + 2 config file + 2 ha CLI), 6 prompts, 1 resource template, 42 source files
 - Tools span config CRUD (automation/script/scene/helper/dashboard/blueprint),
   registry read + write (area/floor/label/category/entity/device), state/history,
   device control (`call_service`), integrations, backups, system reload/restart,
-  and bounded live-event listening (`listen_events`).
+  bounded live-event listening (`listen_events`), optional configuration file browsing/reading
+  (`list_config_files`, `get_config_file`), and optional CLI/Supervisor execution
+  (`run_ha_command`, `call_supervisor_api`). Both optional sets are disabled by default
+  and toggleable via the add-on configuration GUI or environment variables.

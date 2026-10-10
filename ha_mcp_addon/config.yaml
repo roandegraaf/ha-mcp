@@ -1,6 +1,6 @@
 name: "Home Assistant MCP Server"
 description: "MCP server for AI-powered Home Assistant management and control"
-version: "0.1.10"
+version: "0.1.12"
 slug: ha_mcp
 # image: "ghcr.io/roandegraaf/ha-mcp-{arch}"
 url: "https://github.com/roandegraaf/ha-mcp"
@@ -8,6 +8,10 @@ arch:
   - amd64
   - aarch64
 homeassistant_api: true
+hassio_api: true
+hassio_role: manager
+map:
+  - homeassistant_config:ro
 init: false
 ingress: true
 ingress_port: 8100
@@ -20,6 +24,10 @@ ports_description:
 options:
   transport: "http"
   log_level: "INFO"
+  enable_config_files: false
+  enable_ha_cli: false
 schema:
   transport: "list(http)"
   log_level: "list(DEBUG|INFO|WARNING|ERROR)"
+  enable_config_files: "bool"
+  enable_ha_cli: "bool"

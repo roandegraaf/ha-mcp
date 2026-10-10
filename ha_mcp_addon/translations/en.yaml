@@ -5,3 +5,9 @@ configuration:
   log_level:
     name: Log Level
     description: "Server logging level"
+  enable_config_files:
+    name: Enable Configuration Files Access
+    description: "Expose MCP tools to read and list Home Assistant configuration files (e.g. configuration.yaml). Disabled by default."
+  enable_ha_cli:
+    name: Enable 'ha' CLI & Supervisor Commands
+    description: "Expose MCP tools to execute Home Assistant CLI ('ha') and Supervisor management commands. Disabled by default."

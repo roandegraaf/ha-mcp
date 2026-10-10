@@ -12,6 +12,8 @@ The add-on exposes two options in the **Configuration** tab:
 |--------|---------|-------------|
 | `transport` | `http` | Transport protocol (`http` supports both streamable-HTTP and SSE fallback) |
 | `log_level` | `INFO` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `enable_config_files` | `false` | Enable tools to browse and read Home Assistant configuration files (`list_config_files`, `get_config_file`) |
+| `enable_ha_cli` | `false` | Enable tools to execute Home Assistant CLI (`ha`) and Supervisor API commands (`run_ha_command`, `call_supervisor_api`) |
 
 The MCP server listens on port **8099**. You can change the host
 port mapping in the add-on's **Network** panel.
@@ -110,6 +112,38 @@ Controls the verbosity of server logs.
 
 Set to `DEBUG` for detailed request and response logging during
 development or troubleshooting.
+
+### `HA_MCP_ENABLE_CONFIG_FILES`
+
+Controls whether configuration file browsing and reading tools (`list_config_files`, `get_config_file`) are registered on the MCP server.
+
+- **Default:** `false`
+- **Allowed values:** `true`, `false`
+
+### `HA_MCP_ENABLE_HA_CLI`
+
+Controls whether Home Assistant CLI execution and Supervisor API tools (`run_ha_command`, `call_supervisor_api`) are registered on the MCP server.
+
+- **Default:** `false`
+- **Allowed values:** `true`, `false`
+
+### `HA_MCP_CONFIG_DIR`
+
+The filesystem directory containing Home Assistant configuration files.
+
+- **Default:** `/homeassistant` (automatically falls back to `/config` or current directory if available)
+
+### `HA_MCP_HA_CLI_PATH`
+
+Filesystem path to the official `ha` CLI executable.
+
+- **Default:** `/usr/bin/ha`
+
+### `HA_MCP_SUPERVISOR_URL`
+
+Base URL for the Home Assistant Supervisor REST API.
+
+- **Default:** `http://supervisor`
 
 ## Client setup examples
 

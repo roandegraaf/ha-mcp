@@ -26,6 +26,8 @@ Pre-built Docker images are pulled from GitHub Container Registry, so installati
 |--------|---------|-------------|
 | `transport` | `http` | Transport protocol. Use `http` (supports both streamable-HTTP and SSE fallback). |
 | `log_level` | `INFO` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
+| `enable_config_files` | `false` | Enable tools to browse and read Home Assistant configuration files (`list_config_files`, `get_config_file`). |
+| `enable_ha_cli` | `false` | Enable tools to execute Home Assistant CLI (`ha`) and Supervisor API commands (`run_ha_command`, `call_supervisor_api`). |
 
 The server listens on port **8099** by default. You can change the host port mapping in the add-on's **Network** configuration panel.
 
