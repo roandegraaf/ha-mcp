@@ -322,11 +322,13 @@ def register_registry_edit_tools(mcp_server):
         hidden: bool | None = None,
         disabled: bool | None = None,
         aliases: list[str] | None = None,
+        display_precision: int | None = None,
     ) -> str:
         """Update an entity in the entity registry.
 
         Lets you rename an entity, change its entity_id, assign it to an area,
-        attach labels, set a custom icon, and hide or disable it.
+        attach labels, set a custom icon, hide or disable it, and set how many
+        decimals a sensor's state is displayed with.
 
         Args:
             entity_id: The entity to update (e.g. 'light.living_room').
@@ -338,11 +340,19 @@ def register_registry_edit_tools(mcp_server):
             hidden: True to hide, False to unhide.
             disabled: True to disable, False to enable.
             aliases: Replacement list of voice-assistant aliases.
+            display_precision: Decimals to display for a sensor entity's
+                state (0-10). Only valid for ``sensor.*`` entities.
 
         Note: ``hidden``/``disabled`` map to HA's ``hidden_by``/``disabled_by``
         fields ('user' when set, null when cleared).
         """
         ws, _rest = get_clients(ctx)
+
+        if display_precision is not None:
+            if not entity_id.startswith("sensor."):
+                return json.dumps({"error": "display_precision only applies to sensor entities."})
+            if not 0 <= display_precision <= 10:
+                return json.dumps({"error": "display_precision must be between 0 and 10."})
 
         changes: dict = _drop_none(
             {
@@ -358,6 +368,13 @@ def register_registry_edit_tools(mcp_server):
             changes["hidden_by"] = "user" if hidden else None
         if disabled is not None:
             changes["disabled_by"] = "user" if disabled else None
+        if display_precision is not None:
+            # HA replaces the whole options dict for the domain, so merge to keep e.g. a unit override.
+            entry = await ws.send_command("config/entity_registry/get", entity_id=entity_id)
+            sensor_options = dict((entry or {}).get("options", {}).get("sensor", {}))
+            sensor_options["display_precision"] = display_precision
+            changes["options_domain"] = "sensor"
+            changes["options"] = sensor_options
 
         if not changes:
             return json.dumps({"error": "No fields provided to update."})
