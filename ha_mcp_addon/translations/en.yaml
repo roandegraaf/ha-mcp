@@ -11,6 +11,12 @@ configuration:
   enable_device_control:
     name: Enable device control
     description: "Expose the generic call_service tool (turning devices on/off etc.). Off by default, since this server is meant for setting Home Assistant up."
+  enable_config_files:
+    name: Enable configuration file access
+    description: "Expose read-only tools to browse and read configuration files (configuration.yaml, packages, automations, templates). Off by default."
+  allow_secrets_file:
+    name: Allow secrets.yaml access
+    description: "Allow reading secrets.yaml when configuration file access is enabled. Off by default for security."
   log_level:
     name: Log level
     description: "Server logging level"

@@ -1,6 +1,7 @@
 """Configuration module for the Home Assistant MCP Server."""
 
 import logging
+import os
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -23,6 +24,9 @@ class Settings(BaseSettings):
     confirm_mode: Literal["client", "elicit"] = "client"
     read_only: bool = False
     enable_device_control: bool = False
+    enable_config_files: bool = False
+    allow_secrets_file: bool = False
+    config_dir: str = ""
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(env_prefix="HA_MCP_")
@@ -57,6 +61,15 @@ class Settings(BaseSettings):
         parsed = urlparse(self.ha_base_url)
         scheme = "wss" if parsed.scheme == "https" else "ws"
         return f"{scheme}://{parsed.netloc}{parsed.path}/api/websocket"
+
+    @property
+    def effective_config_dir(self) -> str | None:
+        """Return the accessible Home Assistant config directory or None."""
+        if self.config_dir and os.path.isdir(self.config_dir):
+            return self.config_dir
+        if os.path.isdir("/homeassistant"):
+            return "/homeassistant"
+        return None
 
 
 settings = Settings()

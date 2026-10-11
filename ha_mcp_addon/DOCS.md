@@ -25,6 +25,8 @@ carry `Authorization: Bearer <API_KEY>`.
 | `confirm_mode` | `client` | `client`: rely on your AI client's tool-approval prompt. `elicit`: the server asks for confirmation itself (only for clients that support MCP elicitation). |
 | `read_only` | `false` | Only expose tools that read configuration. |
 | `enable_device_control` | `false` | Expose the generic `call_service` tool for turning devices on/off. |
+| `enable_config_files` | `false` | Expose read-only tools to browse and read configuration files (`configuration.yaml`, automations, packages, templates). |
+| `allow_secrets_file` | `false` | Allow reading `secrets.yaml` when configuration file access is enabled (credentials are still redacted). |
 | `log_level` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. |
 
 The 0.1.x `transport` option is gone; the add-on always uses streamable

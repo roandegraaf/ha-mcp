@@ -21,6 +21,7 @@ from ha_mcp.tools.config_flow import register_config_flow_tools
 from ha_mcp.tools.registry_remove import register_registry_remove_tools
 from ha_mcp.tools.diagnostics import register_diagnostics_tools
 from ha_mcp.tools.categories import register_category_tools
+from ha_mcp.tools.config_files import register_config_file_tools
 
 READ_ONLY_PREFIXES = (
     "list_", "get_", "search_", "validate_", "render_", "analyze_",
@@ -85,3 +86,5 @@ def register_all_tools(mcp):
     register_registry_remove_tools(registrar)
     register_diagnostics_tools(registrar)
     register_category_tools(registrar)
+    if settings.enable_config_files:
+        register_config_file_tools(registrar)

@@ -11,6 +11,8 @@ Supervisor token. MCP clients authenticate to the add-on with an API key.
 | `confirm_mode` | `client` | How changes are confirmed. See [Confirmation](#confirmation). |
 | `read_only` | `false` | Only expose tools that read configuration. |
 | `enable_device_control` | `false` | Expose the generic `call_service` tool. |
+| `enable_config_files` | `false` | Expose read-only tools to browse and read configuration files (`configuration.yaml`, automations, packages, templates). Requires `homeassistant_config:ro` mount. |
+| `allow_secrets_file` | `false` | Allow reading `secrets.yaml` when configuration file access is enabled (credentials are still redacted). |
 | `log_level` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. |
 
 The `transport` option from 0.1.x has been removed; the add-on always
@@ -38,6 +40,9 @@ All settings use the `HA_MCP_` prefix.
 | `HA_MCP_CONFIRM_MODE` | `client` | `client` or `elicit`. See below. |
 | `HA_MCP_READ_ONLY` | `false` | Only register read-only tools. |
 | `HA_MCP_ENABLE_DEVICE_CONTROL` | `false` | Register `call_service`. |
+| `HA_MCP_ENABLE_CONFIG_FILES` | `false` | Expose read-only configuration file tools. |
+| `HA_MCP_ALLOW_SECRETS_FILE` | `false` | Allow reading `secrets.yaml` (credentials are still redacted). |
+| `HA_MCP_CONFIG_DIR` | *(empty)* | Local path to Home Assistant config directory (defaults to `/homeassistant` in the add-on). |
 | `HA_MCP_LOG_LEVEL` | `INFO` | Logging level. |
 
 The server refuses to start on `http`/`sse` without `HA_MCP_API_KEY`
