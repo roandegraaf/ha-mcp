@@ -6,6 +6,7 @@ import logging
 from fastmcp import Context
 
 from ha_mcp.util.context import get_clients
+from ha_mcp.util.validation import validate_automation
 from ha_mcp.util.yaml_util import validate_yaml_syntax, from_yaml
 
 logger = logging.getLogger(__name__)
@@ -23,9 +24,9 @@ def register_config_validation_tools(mcp_server):
         and returns the validation result.
 
         Parameters:
-            config: A JSON string containing an object with optional keys
-                'trigger' (array), 'condition' (array), and 'action' (array)
-                representing the parts of an automation to validate.
+            config: A JSON string containing an automation object (or part of
+                one) with 'triggers', 'conditions' and 'actions' arrays. The
+                legacy singular keys 'trigger', 'condition', 'action' also work.
 
         Returns a JSON object with:
             valid: bool indicating whether the configuration is valid.
@@ -43,44 +44,10 @@ def register_config_validation_tools(mcp_server):
                 "warnings": [],
             }, indent=2)
 
-        triggers = parsed.get("trigger", [])
-        conditions = parsed.get("condition", [])
-        actions = parsed.get("action", [])
+        if not isinstance(parsed, dict):
+            return json.dumps({"valid": False, "errors": ["Config must be a JSON object."], "warnings": []})
 
-        try:
-            result = await ws.send_command(
-                "validate_config",
-                trigger=triggers,
-                condition=conditions,
-                action=actions,
-            )
-        except Exception as exc:
-            logger.error("validate_config WS command failed: %s", exc)
-            return json.dumps({
-                "valid": False,
-                "errors": [f"Validation request failed: {exc}"],
-                "warnings": [],
-            }, indent=2)
-
-        errors = []
-        warnings = []
-
-        for key in ("trigger", "condition", "action"):
-            section = result.get(key, {})
-            if isinstance(section, dict):
-                if section.get("valid") is False:
-                    error_msg = section.get("error", f"Invalid {key}")
-                    errors.append(f"{key}: {error_msg}")
-            elif isinstance(section, str) and section:
-                errors.append(f"{key}: {section}")
-
-        valid = len(errors) == 0
-
-        return json.dumps({
-            "valid": valid,
-            "errors": errors,
-            "warnings": warnings,
-        }, indent=2)
+        return json.dumps(await validate_automation(ws, parsed), indent=2)
 
     @mcp_server.tool()
     async def check_config(ctx: Context) -> str:

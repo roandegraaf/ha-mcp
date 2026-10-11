@@ -1,8 +1,25 @@
 import logging
+
 import yaml
 from fastmcp import Context
+from fastmcp.exceptions import ToolError
+
+from ha_mcp.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _format_preview(
+    action: str, entity_type: str, identifier: str, config: dict, validation_result: dict | None
+) -> str:
+    yaml_preview = yaml.dump(config, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    parts = [f"## {action.upper()} {entity_type}: {identifier}", "", "```yaml", yaml_preview.rstrip(), "```"]
+    if validation_result:
+        parts += ["", f"### Validation: {'PASSED' if validation_result.get('valid', True) else 'FAILED'}"]
+        parts += [f"- {w}" for w in validation_result.get("warnings", [])]
+    parts += ["", "Apply this change?"]
+    return "\n".join(parts)
+
 
 async def confirm_change(
     ctx: Context,
@@ -11,79 +28,38 @@ async def confirm_change(
     identifier: str,
     config: dict,
     validation_result: dict | None = None,
-    skip_confirm: bool = False,
 ) -> bool:
-    """Show YAML preview and ask for confirmation before applying changes.
+    """Gate a mutating action. Returns False only when the user declines.
 
-    Args:
-        ctx: FastMCP context
-        action: Action being performed (CREATE, UPDATE, DELETE)
-        entity_type: Type of entity (automation, script, scene, etc.)
-        identifier: Entity identifier
-        config: Configuration to preview
-        validation_result: Optional validation results to include
-        skip_confirm: Skip confirmation (for clients without elicitation)
-
-    Returns:
-        True if confirmed, False if cancelled.
+    Raises ToolError when validation fails, when the server is read-only, or when
+    elicitation is required but the client cannot answer it, so the model sees why.
+    The confirmation policy is a server setting, never a tool argument, so a model
+    cannot talk its way past it.
     """
-    if skip_confirm:
-        logger.info("Skipping confirmation for %s %s: %s", action, entity_type, identifier)
+    if settings.read_only:
+        raise ToolError("This MCP server is in read-only mode; changes are disabled.")
+
+    if validation_result and not validation_result.get("valid", True):
+        errors = "; ".join(validation_result.get("errors", [])) or "unknown error"
+        raise ToolError(f"Validation failed for {entity_type} {identifier}: {errors}")
+
+    if settings.confirm_mode == "client":
+        logger.info("%s %s: %s (approval delegated to client)", action, entity_type, identifier)
         return True
 
-    yaml_preview = yaml.dump(config, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-    message_parts = [
-        f"## {action.upper()} {entity_type}: {identifier}",
-        "",
-        "```yaml",
-        yaml_preview.rstrip(),
-        "```",
-    ]
-
-    if validation_result:
-        valid = validation_result.get("valid", True)
-        errors = validation_result.get("errors", [])
-        warnings = validation_result.get("warnings", [])
-
-        message_parts.append("")
-        message_parts.append(f"### Validation: {'PASSED' if valid else 'FAILED'}")
-
-        if errors:
-            message_parts.append("**Errors:**")
-            for err in errors:
-                message_parts.append(f"- {err}")
-
-        if warnings:
-            message_parts.append("**Warnings:**")
-            for warn in warnings:
-                message_parts.append(f"- {warn}")
-
-        if not valid:
-            message_parts.append("")
-            message_parts.append("**Validation failed. Cannot apply.**")
-            return False
-
-    message_parts.append("")
-    message_parts.append("Apply this change?")
-
-    message = "\n".join(message_parts)
-
+    message = _format_preview(action, entity_type, identifier, config, validation_result)
     try:
-        response = await ctx.elicit(
-            message=message,
-            response_type=["confirm", "cancel"]
-        )
-        confirmed = response.action == "accept" and response.data == "confirm"
-    except Exception as e:
-        # If elicitation is not supported, log and return based on skip_confirm_default
-        logger.warning("Elicitation not supported by client: %s. Proceeding with default.", e)
-        from ha_mcp.config import settings
-        confirmed = settings.skip_confirm_default
+        response = await ctx.elicit(message=message, response_type=["confirm", "cancel"])
+    except Exception as exc:
+        logger.warning("Elicitation unavailable: %s", exc)
+        raise ToolError(
+            "This server requires an in-client confirmation (confirm_mode=elicit), but the "
+            "connected MCP client cannot show one. Switch confirm_mode to 'client' to rely "
+            "on the client's own tool-approval prompt instead."
+        ) from exc
 
-    if confirmed:
-        logger.info("User confirmed %s %s: %s", action, entity_type, identifier)
-    else:
-        logger.info("User cancelled %s %s: %s", action, entity_type, identifier)
-
+    confirmed = response.action == "accept" and getattr(response, "data", None) == "confirm"
+    logger.info(
+        "User %s %s %s: %s", "confirmed" if confirmed else "cancelled", action, entity_type, identifier
+    )
     return confirmed

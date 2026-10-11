@@ -78,15 +78,13 @@ def register_blueprint_tools(mcp_server):
 
     @mcp_server.tool()
     async def import_blueprint(
-        ctx: Context, url: str, skip_confirm: bool = False
+        ctx: Context, url: str
     ) -> str:
         """Import a community blueprint from a URL into Home Assistant.
 
         Parameters:
             url: The URL of the blueprint to import. Typically a GitHub URL
                 or a Home Assistant community forum blueprint URL.
-            skip_confirm: If True, skip the dry-run confirmation prompt and
-                apply the import immediately.
 
         The blueprint is fetched from the URL and its configuration is shown
         for review before saving. Once imported, it can be used to create
@@ -94,6 +92,9 @@ def register_blueprint_tools(mcp_server):
 
         Returns the imported blueprint's path and domain on success.
         """
+        if not url.lower().startswith("https://"):
+            return json.dumps({"success": False, "error": "Only https:// blueprint URLs are allowed."})
+
         ws, _rest = get_clients(ctx)
 
         # First, import the blueprint to retrieve its configuration
@@ -117,7 +118,6 @@ def register_blueprint_tools(mcp_server):
             entity_type="blueprint",
             identifier=f"{blueprint_domain}/{suggested_filename}",
             config=blueprint_config if isinstance(blueprint_config, dict) else {"raw_data": blueprint_config},
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -157,7 +157,6 @@ def register_blueprint_tools(mcp_server):
         domain: str,
         blueprint_path: str,
         inputs: str,
-        skip_confirm: bool = False,
     ) -> str:
         """Create an automation or script from an existing blueprint.
 
@@ -169,7 +168,6 @@ def register_blueprint_tools(mcp_server):
                 These correspond to the 'input' schema defined in the
                 blueprint. May also include 'alias' and 'description' keys
                 to set the entity's display name and description.
-            skip_confirm: If True, skip the dry-run confirmation prompt.
 
         Builds the appropriate configuration using the blueprint reference
         and input values, then saves and reloads the domain.
@@ -234,7 +232,6 @@ def register_blueprint_tools(mcp_server):
             entity_type=f"{domain} (from blueprint)",
             identifier=identifier,
             config=config,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:

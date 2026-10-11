@@ -83,7 +83,6 @@ def register_dashboard_tools(mcp_server):
         ctx: Context,
         config: str,
         dashboard_id: str | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Save a complete Lovelace dashboard configuration.
 
@@ -101,7 +100,6 @@ def register_dashboard_tools(mcp_server):
                 }
             dashboard_id: The URL path of the dashboard to save. Omit or
                 pass None to save the default/overview dashboard.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Replaces the entire dashboard configuration. Use with care.
         """
@@ -120,7 +118,6 @@ def register_dashboard_tools(mcp_server):
             entity_type="dashboard",
             identifier=identifier,
             config=config_dict,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -168,7 +165,6 @@ def register_dashboard_tools(mcp_server):
         view_config: str,
         dashboard_id: str | None = None,
         position: int | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Add a new view to a Lovelace dashboard.
 
@@ -185,7 +181,6 @@ def register_dashboard_tools(mcp_server):
                 default dashboard.
             position: Zero-based index where the view should be inserted.
                 If omitted, the view is appended at the end.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Fetches the current dashboard config, inserts the new view, and
         saves the updated config back.
@@ -219,7 +214,6 @@ def register_dashboard_tools(mcp_server):
             entity_type="dashboard",
             identifier=f"{identifier} - {new_view.get('title', 'Untitled')}",
             config=config,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -244,7 +238,6 @@ def register_dashboard_tools(mcp_server):
         view_index: int,
         view_config: str,
         dashboard_id: str | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Replace a view in a Lovelace dashboard.
 
@@ -253,7 +246,6 @@ def register_dashboard_tools(mcp_server):
             view_config: JSON string containing the new view configuration.
             dashboard_id: The URL path of the dashboard. Omit for the
                 default dashboard.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Fetches the current dashboard config, replaces the view at the
         specified index, and saves the updated config back.
@@ -284,7 +276,6 @@ def register_dashboard_tools(mcp_server):
             entity_type="dashboard",
             identifier=f"{identifier} - view[{view_index}]",
             config=config,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -306,7 +297,6 @@ def register_dashboard_tools(mcp_server):
         ctx: Context,
         view_index: int,
         dashboard_id: str | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Delete a view from a Lovelace dashboard.
 
@@ -314,7 +304,6 @@ def register_dashboard_tools(mcp_server):
             view_index: Zero-based index of the view to delete.
             dashboard_id: The URL path of the dashboard. Omit for the
                 default dashboard.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Fetches the current dashboard config, removes the view at the
         specified index, and saves the updated config back. This action
@@ -341,7 +330,6 @@ def register_dashboard_tools(mcp_server):
             entity_type="dashboard",
             identifier=f"{identifier} - {removed_view.get('title', 'Untitled')}",
             config=removed_view,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -365,7 +353,6 @@ def register_dashboard_tools(mcp_server):
         view_index: int,
         card_config: str,
         dashboard_id: str | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Add a card to a view in a Lovelace dashboard.
 
@@ -379,7 +366,6 @@ def register_dashboard_tools(mcp_server):
                 }
             dashboard_id: The URL path of the dashboard. Omit for the
                 default dashboard.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Fetches the current dashboard config, appends the card to the
         specified view's cards list, and saves the updated config back.
@@ -412,7 +398,6 @@ def register_dashboard_tools(mcp_server):
             entity_type="dashboard",
             identifier=f"{identifier} - view[{view_index}]",
             config=new_card,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -437,7 +422,6 @@ def register_dashboard_tools(mcp_server):
         card_index: int,
         card_config: str,
         dashboard_id: str | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Replace a card in a view of a Lovelace dashboard.
 
@@ -447,7 +431,6 @@ def register_dashboard_tools(mcp_server):
             card_config: JSON string containing the new card configuration.
             dashboard_id: The URL path of the dashboard. Omit for the
                 default dashboard.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Fetches the current dashboard config, replaces the card at the
         specified position, and saves the updated config back.
@@ -487,7 +470,6 @@ def register_dashboard_tools(mcp_server):
             entity_type="dashboard",
             identifier=f"{identifier} - view[{view_index}]/card[{card_index}]",
             config=new_card,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:

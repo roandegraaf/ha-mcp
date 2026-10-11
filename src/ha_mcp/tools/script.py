@@ -8,6 +8,7 @@ from fastmcp import Context
 
 from ha_mcp.util.context import get_clients
 from ha_mcp.util.dry_run import confirm_change
+from ha_mcp.util.validation import validate_config_parts
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,6 @@ def register_script_tools(mcp_server):
         ctx: Context,
         script_id: str,
         config: str,
-        skip_confirm: bool = False,
     ) -> str:
         """Create a new Home Assistant script.
 
@@ -84,11 +84,8 @@ def register_script_tools(mcp_server):
                 - mode: Execution mode ('single', 'restart', 'queued', 'parallel')
                 - icon: MDI icon string
                 - description: Description of the script
-            skip_confirm: If True, skip the dry-run confirmation prompt.
-                Set this only when the calling client does not support elicitation.
 
         The script configuration is validated against Home Assistant before saving.
-        A dry-run preview is shown for confirmation unless skip_confirm is True.
         """
         ws, rest = get_clients(ctx)
 
@@ -119,23 +116,7 @@ def register_script_tools(mcp_server):
 
         # Validate the action sequence via WebSocket
         sequence = script_config.get("sequence", [])
-        validation_result = None
-        try:
-            result = await ws.send_command(
-                "validate_config",
-                action=sequence,
-            )
-            validation_result = {
-                "valid": True,
-                "errors": [],
-                "warnings": [],
-            }
-        except Exception as exc:
-            validation_result = {
-                "valid": False,
-                "errors": [str(exc)],
-                "warnings": [],
-            }
+        validation_result = await validate_config_parts(ws, actions=sequence)
 
         # Dry-run confirmation
         confirmed = await confirm_change(
@@ -145,7 +126,6 @@ def register_script_tools(mcp_server):
             identifier=script_id,
             config=script_config,
             validation_result=validation_result,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -177,7 +157,6 @@ def register_script_tools(mcp_server):
         ctx: Context,
         script_id: str,
         config: str,
-        skip_confirm: bool = False,
     ) -> str:
         """Update an existing Home Assistant script.
 
@@ -186,7 +165,6 @@ def register_script_tools(mcp_server):
             config: JSON string with the complete updated script configuration.
                 This replaces the entire script config — include all fields, not
                 just the ones being changed. Must include 'sequence' at minimum.
-            skip_confirm: If True, skip the dry-run confirmation prompt.
 
         Fetches the current config for reference, validates the new config, shows
         a dry-run preview for confirmation, then saves and reloads.
@@ -219,23 +197,7 @@ def register_script_tools(mcp_server):
 
         # Validate the action sequence via WebSocket
         sequence = script_config.get("sequence", [])
-        validation_result = None
-        try:
-            result = await ws.send_command(
-                "validate_config",
-                action=sequence,
-            )
-            validation_result = {
-                "valid": True,
-                "errors": [],
-                "warnings": [],
-            }
-        except Exception as exc:
-            validation_result = {
-                "valid": False,
-                "errors": [str(exc)],
-                "warnings": [],
-            }
+        validation_result = await validate_config_parts(ws, actions=sequence)
 
         # Dry-run confirmation
         confirmed = await confirm_change(
@@ -245,7 +207,6 @@ def register_script_tools(mcp_server):
             identifier=script_id,
             config=script_config,
             validation_result=validation_result,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -276,13 +237,11 @@ def register_script_tools(mcp_server):
     async def delete_script(
         ctx: Context,
         script_id: str,
-        skip_confirm: bool = False,
     ) -> str:
         """Delete an existing Home Assistant script.
 
         Args:
             script_id: The script object ID (e.g. 'morning_routine').
-            skip_confirm: If True, skip the dry-run confirmation prompt.
 
         Fetches the current config for a deletion preview, asks for confirmation,
         then deletes the script and reloads the script domain.
@@ -305,7 +264,6 @@ def register_script_tools(mcp_server):
             entity_type="script",
             identifier=script_id,
             config=current_config,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:

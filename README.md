@@ -1,257 +1,135 @@
 # Home Assistant MCP Server
 
-An MCP (Model Context Protocol) server that gives AI assistants
-the ability to manage Home Assistant. It provides tools for reading
-device and entity states, creating and editing automations, scripts,
-scenes, helpers, dashboards, and blueprints, organising the
-device/entity/area/floor/label registries, managing integrations and
-backups, controlling devices, and suggesting missing automations
-based on your setup.
+An MCP (Model Context Protocol) server for setting up and maintaining
+Home Assistant with an AI assistant. It adds integrations through config
+flows, organises devices and entities, builds automations, scripts,
+scenes, helpers, dashboards and blueprints, fixes repairs, debugs
+automation traces, and manages backups.
 
-> **Note:** All mutating actions -- configuration changes, registry
-> edits, integration reloads, backups, restarts, and device control --
-> go through a dry-run and confirm flow so you can review what will
-> happen before it is applied.
+It is aimed at configuration, not day-to-day device control. The generic
+`call_service` tool is off by default.
 
 ## Features
 
-- **Registry queries** -- list and search devices, entities, areas,
-  floors, and labels
-- **Registry editing** -- create/update/delete areas, floors, and
-  labels; rename entities and devices, assign them to areas, attach
-  labels, and hide/disable them
-- **Device control** -- call any Home Assistant service to actuate
-  devices (turn lights on/off, set a thermostat, run a script)
-- **Integration management** -- list, reload, and enable/disable
-  configured integrations (config entries)
-- **Backups** -- list existing backups and create a new full backup
-- **System control** -- reload a config domain, restart core (with a
-  config check first), inspect core config, system health, and the
-  available services
-- **Live events** -- listen to Home Assistant events for a bounded
-  window (e.g. to watch what a device does)
-- **State inspection** -- read entity states, history, logbook
-  entries, error logs, and render Jinja2 templates
-- **Automation management** -- full CRUD, toggle, duplicate, and
-  conflict detection for automations
-- **Script management** -- create, read, update, and delete scripts
-- **Scene management** -- create, read, update, and delete scenes
-- **Helper management** -- create, update, and delete input helpers
-  (`input_boolean`, `input_number`, `input_text`, `input_select`,
-  `input_datetime`, `input_button`)
-- **Dashboard management** -- manage Lovelace dashboards, views,
-  and cards
-- **Blueprint management** -- list, import, and create automations
-  or scripts from blueprints
-- **Configuration validation** -- validate automation configs,
-  check HA core configuration, and validate YAML syntax
-- **Proactive suggestions** -- analyze device coverage, suggest
-  automations, detect conflicts, and suggest dashboard layouts
-- **Guided workflows** -- six prompt templates for common tasks
-  like creating automations, building dashboards, and
-  troubleshooting
+- **Integration setup** -- start and step through config flows, options
+  flows and subentry flows; handle discovered and ignored flows; delete
+  integrations
+- **Registries** -- list, search and edit devices, entities, areas,
+  floors, labels and categories; remove orphaned entities and devices
+- **Automations, scripts, scenes** -- full CRUD, validated against Home
+  Assistant before saving, plus conflict detection
+- **Helpers** -- `input_*`, `counter`, `timer` and `schedule`, and
+  config-flow helpers (template, group, utility_meter, ...) via config
+  flows
+- **Dashboards and blueprints** -- views, cards, blueprint import and
+  instantiation
+- **Diagnostics** -- repairs, structured system log, automation/script
+  traces, and discovery of the triggers, conditions and services
+  available for a target
+- **Backups** -- list, create, delete, and configure automatic backups
+- **System** -- reload domains, restart core after a config check,
+  system health
+- **Guided workflows** -- six prompt templates
+
+Tools added in 0.2.0 (config flows, registry removal, categories,
+diagnostics, backup configuration, `counter`/`timer`/`schedule` helpers)
+are not yet verified against a live Home Assistant.
+
+## Security model
+
+- MCP clients authenticate with an API key (`Authorization: Bearer
+  <key>`). The add-on generates one on first start; the pip version
+  refuses to serve HTTP without one.
+- Confirmation is a server setting (`confirm_mode`), never a tool
+  argument, so the model can't skip it.
+- Every tool carries MCP annotations (read-only / destructive), so your
+  client can auto-approve reads and prompt for changes.
+- `read_only` mode exposes only read tools.
+- Shell/Python execution, Supervisor services, stop/restart and recorder
+  purge are blocked in `call_service` even when device control is on.
 
 ## Installation
 
-### Option 1: Home Assistant Add-on (recommended)
+### Home Assistant add-on (recommended)
 
-The easiest way to get started. No Python setup or access tokens
-required -- the add-on authenticates automatically via the
-Supervisor API. Pre-built images are pulled from GitHub Container
-Registry, so installation takes about a minute.
+1. **Settings > Add-ons > Add-on Store**, overflow menu (**⋮**) >
+   **Repositories**, add `https://github.com/roandegraaf/ha-mcp`.
+2. Install **Home Assistant MCP Server** and click **Start**.
+3. Open the **MCP Server** panel in the sidebar. It shows your API key
+   and ready-to-copy snippets for Claude Code, Claude Desktop, Cursor,
+   VS Code and other clients.
 
-1. In Home Assistant, go to **Settings > Add-ons > Add-on Store**.
-2. Click the overflow menu (**⋮**) in the top right, then
-   **Repositories**.
-3. Paste the repository URL and click **Add**:
-   ```
-   https://github.com/roandegraaf/ha-mcp
-   ```
-4. Find **Home Assistant MCP Server** in the store and click
-   **Install**.
-5. Go to the add-on's **Configuration** tab. The defaults
-   (`transport: http`, `log_level: INFO`) work for most setups.
-6. Click **Start**.
-7. Open the **MCP Server** panel in the sidebar (or click
-   **OPEN WEB UI** on the add-on page) to get ready-to-copy
-   connection configs for your MCP client.
+For example, Claude Code:
 
-#### Connecting your MCP client
-
-The add-on exposes the MCP server at:
-
-```
-http://<your-ha-hostname-or-ip>:8099/mcp/
+```bash
+claude mcp add --transport http --scope user home-assistant http://homeassistant.local:8099/mcp \
+  --header "Authorization: Bearer <API_KEY>"
 ```
 
-The add-on's built-in **Connection Guide** web UI auto-detects
-your hostname and shows copy-paste configs for all popular
-clients. Here are the most common ones:
+Claude Desktop (requires Node.js; Settings > Developer > Edit Config):
 
-**Claude Code** (`.mcp.json`):
-```json
-{
-  "mcpServers": {
-    "home-assistant": {
-      "url": "http://homeassistant.local:8099/mcp/"
-    }
-  }
-}
-```
-
-**Claude Desktop** (`claude_desktop_config.json`, requires
-Node.js for `mcp-remote`):
 ```json
 {
   "mcpServers": {
     "home-assistant": {
       "command": "npx",
-      "args": ["mcp-remote", "http://homeassistant.local:8099/mcp/"]
+      "args": ["-y", "mcp-remote", "http://homeassistant.local:8099/mcp",
+               "--allow-http", "--header", "Authorization:${AUTH_HEADER}"],
+      "env": { "AUTH_HEADER": "Bearer <API_KEY>" }
     }
   }
 }
 ```
 
-**Cursor** (`.cursor/mcp.json`):
-```json
-{
-  "mcpServers": {
-    "home-assistant": {
-      "url": "http://homeassistant.local:8099/mcp/"
-    }
-  }
-}
-```
+Claude Desktop's custom connectors can't reach a server on your LAN,
+so use the config file above. See
+[docs/configuration.md](docs/configuration.md#client-setup) for all
+clients.
 
-**Windsurf** (`~/.codeium/windsurf/mcp_config.json`):
-```json
-{
-  "mcpServers": {
-    "home-assistant": {
-      "serverUrl": "http://homeassistant.local:8099/mcp/"
-    }
-  }
-}
-```
+### pip install
 
-**VS Code -- GitHub Copilot** (`.vscode/mcp.json`):
-```json
-{
-  "servers": {
-    "home-assistant": {
-      "url": "http://homeassistant.local:8099/mcp/"
-    }
-  }
-}
-```
+Requires Python 3.11+ and a
+[long-lived access token](https://www.home-assistant.io/docs/authentication/#your-account-profile).
 
-Replace `homeassistant.local` with your HA hostname or IP if
-needed.
-
-### Option 2: pip install (advanced)
-
-For users running Home Assistant Core, or who want to run the
-server on a separate machine.
-
-**Prerequisites:**
-- Python 3.11 or later
-- A running Home Assistant instance (2024.1 or later recommended)
-- A [long-lived access token](https://www.home-assistant.io/docs/authentication/#your-account-profile)
-
-Install:
 ```bash
 pip install .
+export HA_MCP_HA_URL="http://homeassistant.local:8123"
+export HA_MCP_HA_TOKEN="<long-lived-access-token>"
+ha-mcp            # stdio, for clients that launch the server themselves
 ```
 
-For development:
-```bash
-pip install -e ".[dev]"
-```
-
-## Quick start (pip install)
-
-1. Generate a long-lived access token in your Home Assistant
-   profile (under **Security**).
-
-2. Set the required environment variables:
-
-   ```bash
-   export HA_MCP_HA_URL="http://homeassistant.local:8123"
-   export HA_MCP_HA_TOKEN="your-long-lived-access-token"
-   ```
-
-3. Run the server:
-
-   ```bash
-   ha-mcp
-   ```
-
-   The server starts in `stdio` transport mode by default, which
-   is compatible with most MCP clients.
-
-#### Connecting your MCP client (pip install)
-
-When running via pip, the server runs locally on your machine.
-You can use it in `stdio` mode (default) or `http` mode.
-
-**stdio mode** -- Claude Desktop and Claude Code can launch the
-server directly:
-
-```json
-{
-  "mcpServers": {
-    "home-assistant": {
-      "command": "ha-mcp",
-      "env": {
-        "HA_MCP_HA_URL": "http://homeassistant.local:8123",
-        "HA_MCP_HA_TOKEN": "your-long-lived-access-token"
-      }
-    }
-  }
-}
-```
-
-**http mode** -- start the server manually, then point any MCP
-client to the URL:
+For HTTP, an API key is required:
 
 ```bash
 export HA_MCP_TRANSPORT=http
-ha-mcp
+export HA_MCP_API_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+ha-mcp            # serves http://127.0.0.1:8099/mcp
 ```
 
-Then connect to `http://localhost:8099/mcp/`.
-
 ## Configuration
-
-All settings are controlled through environment variables with the
-`HA_MCP_` prefix. When using the add-on, these are set
-automatically -- you only need these for the pip install method.
 
 | Variable | Default | Description |
 |---|---|---|
 | `HA_MCP_HA_URL` | `http://homeassistant.local:8123` | Home Assistant base URL |
 | `HA_MCP_HA_TOKEN` | *(required)* | Long-lived access token |
-| `HA_MCP_TRANSPORT` | `stdio` | Transport mode: `stdio` or `http` |
-| `HA_MCP_HOST` | `0.0.0.0` | Host to bind when using `http` transport |
-| `HA_MCP_PORT` | `8099` | Port to bind when using `http` transport |
-| `HA_MCP_SKIP_CONFIRM_DEFAULT` | `false` | Skip confirmation prompts when the client doesn't support elicitation |
-| `HA_MCP_LOG_LEVEL` | `INFO` | Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
-
-For detailed configuration guidance, see
-[docs/configuration.md](docs/configuration.md).
+| `HA_MCP_TRANSPORT` | `stdio` | `stdio`, `http` or `sse` |
+| `HA_MCP_HOST` | `127.0.0.1` | Bind address for `http`/`sse` |
+| `HA_MCP_PORT` | `8099` | Port for `http`/`sse` |
+| `HA_MCP_API_KEY` | *(empty)* | Required for `http`/`sse` |
+| `HA_MCP_ALLOW_UNAUTHENTICATED` | `false` | Allow `http`/`sse` without a key (loopback only) |
+| `HA_MCP_CONFIRM_MODE` | `client` | `client` (client's tool approval) or `elicit` (server-side prompt) |
+| `HA_MCP_READ_ONLY` | `false` | Only expose read-only tools |
+| `HA_MCP_ENABLE_DEVICE_CONTROL` | `false` | Expose `call_service` |
+| `HA_MCP_LOG_LEVEL` | `INFO` | Logging level |
 
 ## Documentation
 
-- [Configuration](docs/configuration.md) -- environment variables,
-  transport options, and client setup
-- [Tools reference](docs/tools.md) -- all 54 MCP tools with
-  parameters and descriptions
-- [Prompts reference](docs/prompts.md) -- guided workflow
-  templates
-- [Architecture](docs/architecture.md) -- project structure,
-  module design, and extension guide
+- [Configuration](docs/configuration.md) -- settings, confirmation,
+  client setup
+- [Tools reference](docs/tools.md) -- all 110 tools
+- [Prompts reference](docs/prompts.md)
+- [Architecture](docs/architecture.md)
 
 ## License
 
-This project is provided as-is. See the project repository for
-license details.
+See [LICENSE](LICENSE).

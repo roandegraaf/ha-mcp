@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastmcp import FastMCP
 
+from ha_mcp.auth import ApiKeyVerifier
 from ha_mcp.config import settings
 from ha_mcp.ha_client.websocket import HAWebSocketClient
 from ha_mcp.ha_client.rest import HARestClient
@@ -31,17 +32,22 @@ async def lifespan(server: FastMCP):
 mcp = FastMCP(
     "Home Assistant MCP",
     instructions=(
-        "This MCP server provides tools for managing Home Assistant - "
-        "automations, scripts, scenes, helpers, dashboards, and blueprints, "
-        "plus the device/entity/area/floor/label registries (read and write). "
-        "It can read device/entity states, suggest missing automations, manage "
-        "integrations, list and create backups, reload domains and restart core, "
-        "listen to live events, and directly control devices via call_service "
-        "(e.g. turning lights on/off). All mutating actions go through a "
-        "dry-run + confirm flow."
+        "This MCP server is for setting up and maintaining Home Assistant: "
+        "adding and configuring integrations through config flows, organising "
+        "devices and entities into areas, floors, labels and categories, "
+        "building automations, scripts, scenes, helpers, dashboards and "
+        "blueprints, fixing repairs, debugging automation traces, and "
+        "managing backups. Prefer the dedicated configuration tools over "
+        "call_service. Read the current state before changing it, and validate "
+        "automation/script configs before saving them."
     ),
     lifespan=lifespan,
-    version="0.1.0",
+    auth=(
+        ApiKeyVerifier(settings.api_key)
+        if settings.transport != "stdio" and settings.api_key
+        else None
+    ),
+    version="0.2.0",
 )
 
 # Re-export get_clients for backward compatibility
