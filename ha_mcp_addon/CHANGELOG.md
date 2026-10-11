@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+### Fixed
+- Automation and script saves failed validation on current Home Assistant: `validate_config` now gets `triggers`/`conditions`/`actions` instead of the removed singular keys.
+
 ## 0.2.0
 
 ### Breaking
