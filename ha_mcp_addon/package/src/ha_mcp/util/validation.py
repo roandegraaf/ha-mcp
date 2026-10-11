@@ -24,7 +24,7 @@ async def validate_config_parts(
     """
     payload = {
         key: value
-        for key, value in (("trigger", triggers), ("condition", conditions), ("action", actions))
+        for key, value in (("triggers", triggers), ("conditions", conditions), ("actions", actions))
         if value is not None
     }
     try:

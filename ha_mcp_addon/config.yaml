@@ -8,6 +8,8 @@ arch:
   - amd64
   - aarch64
 homeassistant_api: true
+map:
+  - "homeassistant_config:ro"
 init: false
 ingress: true
 ingress_port: 8100
@@ -22,10 +24,14 @@ options:
   confirm_mode: "client"
   read_only: false
   enable_device_control: false
+  enable_config_files: false
+  allow_secrets_file: false
   log_level: "INFO"
 schema:
   api_key: "password?"
   confirm_mode: "list(client|elicit)"
   read_only: "bool"
   enable_device_control: "bool"
+  enable_config_files: "bool"
+  allow_secrets_file: "bool"
   log_level: "list(DEBUG|INFO|WARNING|ERROR)"

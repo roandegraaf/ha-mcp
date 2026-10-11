@@ -18,6 +18,31 @@ they are saved, and a failed validation blocks the change.
 
 This file is generated from the live tool registry.
 
+## Configuration files
+
+> Enabled by setting `enable_config_files: true` (or `HA_MCP_ENABLE_CONFIG_FILES=true`).
+> Read-only tools for browsing and inspecting YAML configuration files, packages, and templates.
+> Internal directories (.storage, .cloud), database files (*.db*), and hidden files are strictly blocked.
+> Sensitive credentials (passwords, tokens, API keys) are automatically redacted.
+
+### `list_config_files`
+
+*read-only*. Browse and list files in Home Assistant's configuration directory.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `subpath` | `string` | No | Relative directory path inside the config directory (default: root). |
+| `pattern` | `string` | No | Glob pattern to filter files (e.g. `*.yaml`, `*`). Default is `*`. |
+| `recursive` | `boolean` | No | Whether to list files recursively within subdirectories. Default is `false`. |
+
+### `get_config_file`
+
+*read-only*. Read and return the content of a configuration file with automatic credential redaction.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `path` | `string` | Yes | Relative path to the file inside the configuration directory. |
+
 ## Integration setup (config flows)
 
 > New in 0.2.0. Not yet verified against a live Home Assistant.

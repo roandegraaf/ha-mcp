@@ -39,8 +39,10 @@ export HA_MCP_LOG_LEVEL="$(option log_level INFO)"
 export HA_MCP_CONFIRM_MODE="$(option confirm_mode client)"
 export HA_MCP_READ_ONLY="$(option read_only false)"
 export HA_MCP_ENABLE_DEVICE_CONTROL="$(option enable_device_control false)"
+export HA_MCP_ENABLE_CONFIG_FILES="$(option enable_config_files false)"
+export HA_MCP_ALLOW_SECRETS_FILE="$(option allow_secrets_file false)"
 
-echo "[INFO] Starting Home Assistant MCP Server (confirm_mode=${HA_MCP_CONFIRM_MODE}, read_only=${HA_MCP_READ_ONLY}, device_control=${HA_MCP_ENABLE_DEVICE_CONTROL})"
+echo "[INFO] Starting Home Assistant MCP Server (confirm_mode=${HA_MCP_CONFIRM_MODE}, read_only=${HA_MCP_READ_ONLY}, device_control=${HA_MCP_ENABLE_DEVICE_CONTROL}, config_files=${HA_MCP_ENABLE_CONFIG_FILES})"
 
 python3 /guide_server.py &
 

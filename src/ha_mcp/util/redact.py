@@ -8,8 +8,7 @@ _PATTERNS = (
     (re.compile(r"(?i)([a-z][a-z0-9+.-]*://)[^/\s:@]+:[^/\s@]+@"), r"\1[REDACTED]@"),
     (
         re.compile(
-            r"(?i)\b((?:access_|refresh_|api_|auth_)?token|password|passwd|pwd|"
-            r"api[_-]?key|secret|client_secret)(\"?\s*[:=]\s*\"?)([^\s\"',&}]+)"
+            r"(?i)\b([a-z0-9_-]*(?:token|password|passwd|pwd|api[_-]?key|secret|client_secret))(\"?\s*[:=]\s*\"?)([^\s\"',&}]+)"
         ),
         r"\1\2[REDACTED]",
     ),
