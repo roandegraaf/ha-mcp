@@ -29,6 +29,8 @@ It is aimed at configuration, not day-to-day device control. The generic
 - **Backups** -- list, create, delete, and configure automatic backups
 - **System** -- reload domains, restart core after a config check,
   system health
+- **Configuration files** -- browse and inspect YAML configuration
+  files, packages, and templates (read-only, opt-in)
 - **Guided workflows** -- six prompt templates
 
 Tools added in 0.2.0 (config flows, registry removal, categories,
@@ -120,6 +122,9 @@ ha-mcp            # serves http://127.0.0.1:8099/mcp
 | `HA_MCP_CONFIRM_MODE` | `client` | `client` (client's tool approval) or `elicit` (server-side prompt) |
 | `HA_MCP_READ_ONLY` | `false` | Only expose read-only tools |
 | `HA_MCP_ENABLE_DEVICE_CONTROL` | `false` | Expose `call_service` |
+| `HA_MCP_ENABLE_CONFIG_FILES` | `false` | Expose read-only configuration file tools |
+| `HA_MCP_ALLOW_SECRETS_FILE` | `false` | Allow reading `secrets.yaml` (credentials redacted) |
+| `HA_MCP_CONFIG_DIR` | *(empty)* | Local path to config dir (defaults to `/homeassistant` in add-on) |
 | `HA_MCP_LOG_LEVEL` | `INFO` | Logging level |
 
 ## Documentation

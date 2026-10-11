@@ -73,9 +73,11 @@ def test_check_denied(fake_config_dir, tmp_path):
     assert "hidden or internal path" in _check_denied(real_base, os.path.join(real_base, ".cloud", "key"))
     assert "hidden or internal path" in _check_denied(real_base, os.path.join(real_base, ".git", "config"))
 
-    # Database files
+    # Database files (*.db*)
     assert "database files" in _check_denied(real_base, os.path.join(real_base, "home-assistant_v2.db"))
     assert "database files" in _check_denied(real_base, os.path.join(real_base, "home-assistant_v2.db-wal"))
+    assert "database files" in _check_denied(real_base, os.path.join(real_base, "home-assistant_v2.db.corrupt"))
+    assert "database files" in _check_denied(real_base, os.path.join(real_base, "test.db.bak"))
 
     # secrets.yaml denied by default
     assert "secrets.yaml is disabled" in _check_denied(real_base, os.path.join(real_base, "secrets.yaml"))
@@ -207,6 +209,90 @@ async def test_get_config_file_secrets_allowed(fake_config_dir, monkeypatch):
     assert "topsecrettoken" not in data["content"]
     assert "pass123" not in data["content"]
     assert "[REDACTED]" in data["content"]
+
+
+@pytest.mark.asyncio
+async def test_leading_slash_paths(fake_config_dir):
+    """Verify that leading slashes from LLM tool arguments are safely handled."""
+    mcp = FastMCP("test")
+    registrar = _Registrar(mcp)
+    register_config_file_tools(registrar)
+
+    res_file = await mcp.call_tool("get_config_file", {"path": "/configuration.yaml"})
+    data_file = json.loads(res_file.content[0].text)
+    assert data_file["path"] == "configuration.yaml"
+    assert "Test Home" in data_file["content"]
+
+    res_dir = await mcp.call_tool("list_config_files", {"subpath": "/custom_templates"})
+    data_dir = json.loads(res_dir.content[0].text)
+    assert data_dir["subpath"] == "custom_templates"
+    assert any(f["name"] == "test.jinja" for f in data_dir["files"])
+
+
+@pytest.mark.asyncio
+async def test_broken_symlink_handling(fake_config_dir):
+    """Verify that broken symlinks do not crash directory listings."""
+    broken_link = fake_config_dir / "broken.yaml"
+    try:
+        os.symlink("/nonexistent/target/path.yaml", broken_link)
+    except OSError:
+        pytest.skip("Symlinks not supported on this platform/filesystem")
+
+    mcp = FastMCP("test")
+    registrar = _Registrar(mcp)
+    register_config_file_tools(registrar)
+
+    res = await mcp.call_tool("list_config_files", {"subpath": "", "recursive": False})
+    data = json.loads(res.content[0].text)
+    assert "error" not in data
+    names = [f["name"] for f in data["files"]]
+    assert "configuration.yaml" in names
+
+
+@pytest.mark.asyncio
+async def test_advanced_secret_redaction(fake_config_dir):
+    """Verify single-quote, spaced passwords, and crypto key redactions."""
+    adv_file = fake_config_dir / "advanced.yaml"
+    adv_file.write_text(
+        "wifi_password: 'pass with spaces'\n"
+        "private_key: \"super_crypto_key\"\n"
+        "encryption_key: secret123\n"
+        "keyboard_layout: us\n"
+    )
+
+    mcp = FastMCP("test")
+    registrar = _Registrar(mcp)
+    register_config_file_tools(registrar)
+
+    res = await mcp.call_tool("get_config_file", {"path": "advanced.yaml"})
+    data = json.loads(res.content[0].text)
+    content = data["content"]
+
+    assert "'pass with spaces'" not in content
+    assert "'[REDACTED]'" in content
+    assert '"super_crypto_key"' not in content
+    assert '"[REDACTED]"' in content
+    assert "secret123" not in content
+    assert "encryption_key: [REDACTED]" in content
+    assert "keyboard_layout: us" in content
+
+
+@pytest.mark.asyncio
+async def test_large_file_truncation(fake_config_dir):
+    """Verify that files exceeding output cap preserve schema and mark truncated: True."""
+    large_file = fake_config_dir / "large.yaml"
+    large_file.write_text("x" * 60_000)
+
+    mcp = FastMCP("test")
+    registrar = _Registrar(mcp)
+    register_config_file_tools(registrar)
+
+    res = await mcp.call_tool("get_config_file", {"path": "large.yaml"})
+    data = json.loads(res.content[0].text)
+    assert data["path"] == "large.yaml"
+    assert data["truncated"] is True
+    assert len(data["content"]) == 50_000
+    assert data["total_chars"] == 60_000
 
 
 @pytest.mark.asyncio

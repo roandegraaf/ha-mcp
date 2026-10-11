@@ -14,8 +14,9 @@ from ha_mcp.util.redact import redact
 
 logger = logging.getLogger(__name__)
 
-DENIED_EXTENSIONS = (".db", ".db-wal", ".db-shm")
 MAX_OUTPUT_CHARS = 50_000
+MAX_READ_BYTES = 250_000
+MAX_ALLOWED_FILE_BYTES = 5_000_000
 
 
 def _dump(payload) -> str:
@@ -37,13 +38,6 @@ def _error(message: str, hint: str | None = None) -> str:
     if hint:
         err["hint"] = hint
     return json.dumps(err)
-
-
-def _is_safe_subpath(base_dir: str, target_path: str) -> bool:
-    """Check if target_path is safely contained within base_dir."""
-    real_base = os.path.realpath(base_dir)
-    real_target = os.path.realpath(target_path)
-    return real_target == real_base or real_target.startswith(real_base + os.sep)
 
 
 def _check_denied(real_base: str, real_target: str) -> str | None:
@@ -71,10 +65,9 @@ def _check_denied(real_base: str, real_target: str) -> str | None:
             "To permit access, enable 'allow_secrets_file' in the add-on configuration."
         )
 
-    # Database file protection
-    for ext in DENIED_EXTENSIONS:
-        if basename.endswith(ext):
-            return f"Access to database files ('{basename}') is forbidden."
+    # Database file protection (*.db*)
+    if fnmatch.fnmatch(basename, "*.db*"):
+        return f"Access to database files ('{basename}') is forbidden."
 
     return None
 
@@ -108,7 +101,8 @@ def register_config_file_tools(registrar):
                 "Ensure the add-on has homeassistant_config mapped or set HA_MCP_CONFIG_DIR.",
             )
 
-        target_dir = os.path.join(config_dir, subpath) if subpath else config_dir
+        clean_subpath = subpath.strip().lstrip("/\\")
+        target_dir = os.path.join(config_dir, clean_subpath) if clean_subpath else config_dir
         real_base = os.path.realpath(config_dir)
         real_target = os.path.realpath(target_dir)
 
@@ -117,9 +111,9 @@ def register_config_file_tools(registrar):
             return _error(denial)
 
         if not os.path.exists(real_target):
-            return _error(f"Path not found: {subpath or '.'}")
+            return _error(f"Path not found: {clean_subpath or '.'}")
         if not os.path.isdir(real_target):
-            return _error(f"Path is not a directory: {subpath or '.'}")
+            return _error(f"Path is not a directory: {clean_subpath or '.'}")
 
         files_list = []
         try:
@@ -133,7 +127,7 @@ def register_config_file_tools(registrar):
                     for item in sorted(files):
                         if item.startswith("."):
                             continue
-                        if any(item.endswith(ext) for ext in DENIED_EXTENSIONS):
+                        if fnmatch.fnmatch(item, "*.db*"):
                             continue
                         if item == "secrets.yaml" and not settings.allow_secrets_file:
                             continue
@@ -145,13 +139,18 @@ def register_config_file_tools(registrar):
                         if _check_denied(real_base, real_file):
                             continue
 
+                        try:
+                            stat = os.stat(real_file)
+                            mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+                            size_bytes = stat.st_size
+                        except OSError:
+                            continue
+
                         rel_path = os.path.relpath(real_file, real_base)
-                        stat = os.stat(real_file)
-                        mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
                         files_list.append({
                             "name": item,
                             "path": rel_path,
-                            "size_bytes": stat.st_size,
+                            "size_bytes": size_bytes,
                             "modified": mtime,
                             "is_dir": False,
                         })
@@ -159,7 +158,7 @@ def register_config_file_tools(registrar):
                 for item in sorted(os.listdir(real_target)):
                     if item.startswith("."):
                         continue
-                    if any(item.endswith(ext) for ext in DENIED_EXTENSIONS):
+                    if fnmatch.fnmatch(item, "*.db*"):
                         continue
                     if item == "secrets.yaml" and not settings.allow_secrets_file:
                         continue
@@ -169,15 +168,20 @@ def register_config_file_tools(registrar):
                     if _check_denied(real_base, real_item):
                         continue
 
-                    is_dir = os.path.isdir(real_item)
+                    try:
+                        stat = os.stat(real_item)
+                        is_dir = os.path.isdir(real_item)
+                        mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+                        size_bytes = stat.st_size if not is_dir else 0
+                    except OSError:
+                        continue
+
                     if is_dir or fnmatch.fnmatch(item, pattern):
                         rel_path = os.path.relpath(real_item, real_base)
-                        stat = os.stat(real_item)
-                        mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
                         files_list.append({
                             "name": item,
                             "path": rel_path,
-                            "size_bytes": stat.st_size if not is_dir else 0,
+                            "size_bytes": size_bytes,
                             "modified": mtime,
                             "is_dir": is_dir,
                         })
@@ -186,7 +190,7 @@ def register_config_file_tools(registrar):
 
         return _dump({
             "config_dir": config_dir,
-            "subpath": subpath or ".",
+            "subpath": clean_subpath or ".",
             "count": len(files_list),
             "files": files_list,
         })
@@ -201,7 +205,7 @@ def register_config_file_tools(registrar):
         Retrieves configuration files such as configuration.yaml, automations.yaml,
         scripts.yaml, packages, or custom template files. Path traversal outside
         the configuration root, internal paths (.storage, .cloud), and database
-        files are strictly prevented. Sensitive credentials (passwords, tokens,
+        files (*.db*) are strictly prevented. Sensitive credentials (passwords, tokens,
         keys) are automatically redacted.
 
         Args:
@@ -214,10 +218,11 @@ def register_config_file_tools(registrar):
                 "Ensure the add-on has homeassistant_config mapped or set HA_MCP_CONFIG_DIR.",
             )
 
-        if not path or not path.strip():
+        clean_path = path.strip().lstrip("/\\")
+        if not clean_path:
             return _error("Path cannot be empty.")
 
-        target_file = os.path.join(config_dir, path.strip())
+        target_file = os.path.join(config_dir, clean_path)
         real_base = os.path.realpath(config_dir)
         real_target = os.path.realpath(target_file)
 
@@ -234,15 +239,27 @@ def register_config_file_tools(registrar):
             return _error(f"Path is a directory, not a file: {rel}")
 
         try:
+            stat = os.stat(real_target)
+            if stat.st_size > MAX_ALLOWED_FILE_BYTES:
+                rel = os.path.relpath(real_target, real_base)
+                return _error(f"File '{rel}' exceeds maximum size limit ({stat.st_size} bytes).")
+
             with open(real_target, encoding="utf-8", errors="replace") as f:
-                content = f.read()
+                content = f.read(MAX_READ_BYTES)
         except Exception as exc:  # noqa: BLE001
             return _error(f"Failed to read file: {exc}")
 
         rel = os.path.relpath(real_target, real_base)
         redacted_content = redact(content)
+        is_truncated = len(redacted_content) > MAX_OUTPUT_CHARS or stat.st_size > MAX_READ_BYTES
 
-        return _dump({
+        result = {
             "path": rel,
-            "content": redacted_content,
-        })
+            "content": redacted_content[:MAX_OUTPUT_CHARS],
+            "truncated": is_truncated,
+        }
+        if is_truncated:
+            result["total_chars"] = len(redacted_content)
+            result["note"] = f"Content truncated to {MAX_OUTPUT_CHARS} characters."
+
+        return json.dumps(result, indent=2)

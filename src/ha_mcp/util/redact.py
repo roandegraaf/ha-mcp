@@ -6,11 +6,19 @@ _PATTERNS = (
     (re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+"), "Bearer [REDACTED]"),
     (re.compile(r"(?i)\b(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)"), "[REDACTED_JWT]"),
     (re.compile(r"(?i)([a-z][a-z0-9+.-]*://)[^/\s:@]+:[^/\s@]+@"), r"\1[REDACTED]@"),
+    # Quoted credentials (handles single or double quotes, passwords with spaces, etc.)
     (
         re.compile(
-            r"(?i)\b([a-z0-9_-]*(?:token|password|passwd|pwd|api[_-]?key|secret|client_secret))(\"?\s*[:=]\s*\"?)([^\s\"',&}]+)"
+            r"""(?i)(?P<prefix>["\x27]?\b[a-z0-9_-]*(?:token|password|passwd|pwd|key|secret)\b["\x27]?\s*[:=]\s*)(?P<q>["\x27])(?P<val>[^\r\n]*?)(?P=q)"""
         ),
-        r"\1\2[REDACTED]",
+        r"\g<prefix>\g<q>[REDACTED]\g<q>",
+    ),
+    # Unquoted credentials
+    (
+        re.compile(
+            r"""(?i)(?P<prefix>["\x27]?\b[a-z0-9_-]*(?:token|password|passwd|pwd|key|secret)\b["\x27]?\s*[:=]\s*)(?!["\x27])(?P<val>[^\s"'\r\n,&}]+)"""
+        ),
+        r"\g<prefix>[REDACTED]",
     ),
 )
 
