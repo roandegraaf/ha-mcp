@@ -8,6 +8,9 @@ from ha_mcp.tools.automation import register_automation_tools
 from ha_mcp.tools.script import register_script_tools
 from ha_mcp.tools.scene import register_scene_tools
 from ha_mcp.tools.helper import register_helper_tools
+from ha_mcp.tools.timer import register_timer_tools
+from ha_mcp.tools.template_entity import register_template_entity_tools
+from ha_mcp.tools.ui_helpers import register_ui_helper_tools
 from ha_mcp.tools.dashboard import register_dashboard_tools
 from ha_mcp.tools.blueprint import register_blueprint_tools
 from ha_mcp.tools.config_validation import register_config_validation_tools
@@ -17,6 +20,8 @@ from ha_mcp.tools.integration import register_integration_tools
 from ha_mcp.tools.backup import register_backup_tools
 from ha_mcp.tools.control import register_control_tools
 from ha_mcp.tools.events import register_event_tools
+from ha_mcp.tools.traces import register_trace_tools
+
 from ha_mcp.tools.config_flow import register_config_flow_tools
 from ha_mcp.tools.registry_remove import register_registry_remove_tools
 from ha_mcp.tools.diagnostics import register_diagnostics_tools
@@ -64,6 +69,26 @@ class _Registrar:
 
 def register_all_tools(mcp):
     """Register all tool modules with the MCP server."""
+    register_registry_tools(mcp)
+    register_registry_edit_tools(mcp)
+    register_state_tools(mcp)
+    register_automation_tools(mcp)
+    register_script_tools(mcp)
+    register_scene_tools(mcp)
+    register_helper_tools(mcp)
+    register_timer_tools(mcp)
+    register_template_entity_tools(mcp)
+    register_ui_helper_tools(mcp)
+    register_dashboard_tools(mcp)
+    register_blueprint_tools(mcp)
+    register_config_validation_tools(mcp)
+    register_suggestion_tools(mcp)
+    register_system_tools(mcp)
+    register_integration_tools(mcp)
+    register_backup_tools(mcp)
+    register_control_tools(mcp)
+    register_event_tools(mcp)
+    register_trace_tools(mcp)
     registrar = _Registrar(mcp)
     register_registry_tools(registrar)
     register_registry_edit_tools(registrar)

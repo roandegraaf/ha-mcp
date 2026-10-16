@@ -29,6 +29,10 @@ src/ha_mcp/
 │   ├── automation.py    # Automation CRUD
 │   ├── script.py        # Script CRUD
 │   ├── scene.py         # Scene CRUD
+│   ├── helper.py        # Input helper CRUD
+│   ├── timer.py         # Timer helper creation
+│   ├── template_entity.py  # Template sensor helper creation
+│   ├── ui_helpers.py       # Group and Integral Sensor creation
 │   ├── helper.py        # input_*, counter, timer, schedule helpers
 │   ├── dashboard.py     # Lovelace dashboard management
 │   ├── blueprint.py     # Blueprint management

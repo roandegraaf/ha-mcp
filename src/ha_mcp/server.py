@@ -32,6 +32,15 @@ async def lifespan(server: FastMCP):
 mcp = FastMCP(
     "Home Assistant MCP",
     instructions=(
+        "This MCP server provides tools for managing Home Assistant - "
+        "automations, scripts, scenes, helpers, timers, Template sensors, "
+        "groups, and Integral Sensors, dashboards, and blueprints, "
+        "plus the device/entity/area/floor/label registries (read and write). "
+        "It can read device/entity states, suggest missing automations, manage "
+        "integrations, list and create backups, reload domains and restart core, "
+        "listen to live events, and directly control devices via call_service "
+        "(e.g. turning lights on/off). All mutating actions go through a "
+        "dry-run + confirm flow."
         "This MCP server is for setting up and maintaining Home Assistant: "
         "adding and configuring integrations through config flows, organising "
         "devices and entities into areas, floors, labels and categories, "

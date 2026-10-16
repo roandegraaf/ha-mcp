@@ -1,5 +1,6 @@
 """Automation CRUD tools for Home Assistant."""
 
+import asyncio
 import json
 import logging
 import uuid
@@ -16,6 +17,65 @@ logger = logging.getLogger(__name__)
 
 def register_automation_tools(mcp_server):
     """Register all automation management tools on the MCP server."""
+
+    @mcp_server.tool()
+    async def get_all_automation_traces(ctx: Context) -> str:
+        """Fetch every stored execution trace for every Home Assistant automation.
+
+        Returns the full trace data, grouped by automation, including each
+        execution path, evaluated variables, and action results.
+        """
+        ws, rest = get_clients(ctx)
+        states = await rest.get_states()
+        automations = [
+            state for state in states
+            if state.get("entity_id", "").startswith("automation.")
+        ]
+
+        async def fetch_traces(state):
+            entity_id = state["entity_id"]
+            attributes = state.get("attributes", {})
+            automation_id = attributes.get("id")
+            if not automation_id:
+                raise ValueError(
+                    f"Automation entity {entity_id} has no internal ID; "
+                    "its traces cannot be retrieved."
+                )
+
+            summaries = await ws.send_command(
+                "trace/list",
+                domain="automation",
+                item_id=automation_id,
+            )
+            traces = await asyncio.gather(
+                *(
+                    ws.send_command(
+                        "trace/get",
+                        domain="automation",
+                        item_id=automation_id,
+                        run_id=summary["run_id"],
+                    )
+                    for summary in summaries
+                )
+            )
+            return {
+                "automation_id": automation_id,
+                "entity_id": entity_id,
+                "alias": attributes.get("friendly_name", ""),
+                "traces": traces,
+            }
+
+        results = await asyncio.gather(
+            *(fetch_traces(state) for state in automations)
+        )
+        return json.dumps(
+            {
+                "automation_count": len(results),
+                "trace_count": sum(len(item["traces"]) for item in results),
+                "automations": results,
+            },
+            indent=2,
+        )
 
     @mcp_server.tool()
     async def list_automations(ctx: Context) -> str:

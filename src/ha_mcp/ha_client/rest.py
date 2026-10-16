@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any
+from urllib.parse import quote
 
 import aiohttp
 from urllib.parse import quote
@@ -186,6 +187,31 @@ class HARestClient:
     async def get_services(self) -> list[dict]:
         """GET /api/services – return all available service domains and services."""
         return await self._request("GET", "/api/services")
+
+    async def start_config_flow(self, handler: str) -> dict:
+        """Start an integration config flow."""
+        return await self._request(
+            "POST",
+            "/api/config/config_entries/flow",
+            json={"handler": handler},
+        )
+
+    async def submit_config_flow_step(
+        self, flow_id: str, user_input: dict[str, Any]
+    ) -> dict:
+        """Submit input to an integration config flow."""
+        return await self._request(
+            "POST",
+            f"/api/config/config_entries/flow/{quote(flow_id, safe='')}",
+            json=user_input,
+        )
+
+    async def cancel_config_flow(self, flow_id: str) -> Any:
+        """Cancel an unfinished integration config flow."""
+        return await self._request(
+            "DELETE",
+            f"/api/config/config_entries/flow/{quote(flow_id, safe='')}",
+        )
 
     # ------------------------------------------------------------------
     # Config entries (integrations)
