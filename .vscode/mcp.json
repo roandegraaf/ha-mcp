@@ -1,0 +1,27 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "ha-url",
+      "description": "Home Assistant URL, e.g. http://homeassistant.local:8123"
+    },
+    {
+      "type": "promptString",
+      "id": "ha-token",
+      "description": "Home Assistant long-lived access token",
+      "password": true
+    }
+  ],
+  "servers": {
+    "ha-mcp-local": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "ha_mcp"],
+      "env": {
+        "PYTHONPATH": "T:\\ha-mcp\\src",
+        "HA_MCP_HA_URL": "${input:ha-url}",
+        "HA_MCP_HA_TOKEN": "${input:ha-token}"
+      }
+    }
+  }
+}
