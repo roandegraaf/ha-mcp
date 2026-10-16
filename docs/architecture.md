@@ -9,17 +9,23 @@ it with new tools.
 ```
 src/ha_mcp/
 ├── __init__.py
-├── __main__.py          # Entry point (ha-mcp CLI)
+├── __main__.py          # Entry point (ha-mcp CLI), refuses unauthenticated HTTP
+├── auth.py              # Static API-key bearer verifier
 ├── config.py            # Settings via pydantic-settings
-├── server.py            # FastMCP server, lifespan, registration
+├── server.py            # FastMCP server, lifespan, auth, registration
 ├── ha_client/
 │   ├── models.py        # Pydantic models and exceptions
 │   ├── websocket.py     # Persistent WebSocket client
-│   └── rest.py          # REST API client
+│   └── rest.py          # REST API client (path segments escaped via _seg)
 ├── tools/
-│   ├── __init__.py      # register_all_tools aggregator
+│   ├── __init__.py      # register_all_tools + annotation/read-only policy
 │   ├── registry.py      # Device, entity, area, floor, label queries
-│   ├── state.py         # State, history, logbook, templates
+│   ├── registry_edit.py # Area, floor, label, entity, device edits
+│   ├── registry_remove.py  # Remove entities and devices
+│   ├── categories.py    # Category registry + assignment
+│   ├── config_flow.py   # Config, options and subentry flows
+│   ├── integration.py   # Config entry list/reload/enable
+│   ├── state.py         # State, history, logbook, templates, error log
 │   ├── automation.py    # Automation CRUD
 │   ├── script.py        # Script CRUD
 │   ├── scene.py         # Scene CRUD
@@ -27,17 +33,25 @@ src/ha_mcp/
 │   ├── timer.py         # Timer helper creation
 │   ├── template_entity.py  # Template sensor helper creation
 │   ├── ui_helpers.py       # Group and Integral Sensor creation
+│   ├── helper.py        # input_*, counter, timer, schedule helpers
 │   ├── dashboard.py     # Lovelace dashboard management
 │   ├── blueprint.py     # Blueprint management
 │   ├── config_validation.py  # Config and YAML validation
+│   ├── diagnostics.py   # Repairs, system log, traces, target discovery
+│   ├── backup.py        # Backups and backup configuration
+│   ├── system.py        # Reload, restart, health, services
+│   ├── control.py       # call_service (opt-in, denylisted)
+│   ├── events.py        # Bounded event listening
 │   └── suggestions.py   # Proactive analysis and suggestions
 ├── prompts/
 │   └── prompts.py       # MCP prompt templates
 ├── resources/
 │   └── resources.py     # MCP resource templates
 └── util/
-    ├── context.py       # Client extraction from lifespan context
-    ├── dry_run.py       # Confirmation flow (dry-run + elicit)
+    ├── context.py       # Clients from ctx.lifespan_context
+    ├── dry_run.py       # confirm_change(): policy, validation gate, elicit
+    ├── validation.py    # validate_config wrapper (plural + singular keys)
+    ├── redact.py        # Secret redaction and truncation for logs
     ├── yaml_util.py     # YAML parse, format, diff utilities
     └── entity_analysis.py  # Rule-based suggestion engine
 ```
@@ -162,21 +176,40 @@ extracts the clients from the FastMCP lifespan context.
 > That causes a circular import because `server.py` imports the
 > tool modules.
 
+## Authentication
+
+For `http`/`sse`, `server.py` installs `ApiKeyVerifier` (a FastMCP
+`TokenVerifier` using a constant-time compare) when `HA_MCP_API_KEY` is
+set. `__main__.py` exits if it isn't, unless
+`HA_MCP_ALLOW_UNAUTHENTICATED=true`. The add-on generates the key into
+`/data/api_key`, and `ha_mcp_addon/guide_server.py` serves it only to
+the ingress proxy (`172.30.32.2`).
+
+## Tool registration policy
+
+`register_all_tools()` passes each module a registrar instead of the
+FastMCP server. The registrar derives MCP annotations from the tool
+name (`list_`/`get_`/`find_`... are read-only; `delete_`/`remove_`/
+`restart_` and `call_service` are destructive), skips write tools in
+read-only mode, and skips `call_service` unless device control is on.
+Name new tools with these prefixes.
+
 ## Confirmation flow
 
-All mutating tools use the `confirm_change()` function from
-`util/dry_run.py`. The flow works as follows:
+All mutating tools call `confirm_change(ctx, action, entity_type,
+identifier, config, validation_result=None)` from `util/dry_run.py`:
 
-1. The tool builds the proposed configuration.
-2. `confirm_change()` formats a YAML preview with the action type
-   (CREATE, UPDATE, DELETE), entity type, and identifier.
-3. If validation results are available, they are appended to the
-   preview.
-4. The function calls `ctx.elicit()` to prompt the user with
-   confirm/cancel options.
-5. If elicitation isn't supported by the client, the function
-   falls back to the `skip_confirm_default` setting.
-6. The tool only applies the change if confirmation is received.
+1. Raises `ToolError` in read-only mode.
+2. Raises `ToolError` if `validation_result` is invalid, so the model
+   sees why.
+3. With `confirm_mode=client`, returns `True`; the client's own tool
+   approval is the human gate.
+4. With `confirm_mode=elicit`, shows a YAML preview via `ctx.elicit()`
+   and returns whether the user confirmed. If the client can't answer
+   (including on 2026-07-28 protocol connections), it raises
+   `ToolError` instead of applying the change.
+
+There is deliberately no per-call bypass argument.
 
 ## Suggestion engine (`util/entity_analysis.py`)
 

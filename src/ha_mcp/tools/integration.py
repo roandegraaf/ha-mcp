@@ -41,7 +41,7 @@ def register_integration_tools(mcp_server):
 
     @mcp_server.tool()
     async def reload_integration(
-        ctx: Context, entry_id: str, skip_confirm: bool = False
+        ctx: Context, entry_id: str
     ) -> str:
         """Reload an integration (config entry) by its entry_id.
 
@@ -50,12 +50,11 @@ def register_integration_tools(mcp_server):
 
         Args:
             entry_id: The config entry id to reload.
-            skip_confirm: If true, skip the confirmation prompt.
         """
         _ws, rest = get_clients(ctx)
         if not await confirm_change(
             ctx=ctx, action="RELOAD", entity_type="integration",
-            identifier=entry_id, config={"entry_id": entry_id}, skip_confirm=skip_confirm,
+            identifier=entry_id, config={"entry_id": entry_id},
         ):
             return json.dumps({"status": "cancelled", "message": "Reload cancelled."})
 
@@ -70,7 +69,7 @@ def register_integration_tools(mcp_server):
 
     @mcp_server.tool()
     async def set_integration_enabled(
-        ctx: Context, entry_id: str, enabled: bool, skip_confirm: bool = False
+        ctx: Context, entry_id: str, enabled: bool
     ) -> str:
         """Enable or disable an integration (config entry).
 
@@ -79,14 +78,12 @@ def register_integration_tools(mcp_server):
         Args:
             entry_id: The config entry id.
             enabled: True to enable, False to disable.
-            skip_confirm: If true, skip the confirmation prompt.
         """
         _ws, rest = get_clients(ctx)
         action = "ENABLE" if enabled else "DISABLE"
         if not await confirm_change(
             ctx=ctx, action=action, entity_type="integration",
             identifier=entry_id, config={"entry_id": entry_id, "enabled": enabled},
-            skip_confirm=skip_confirm,
         ):
             return json.dumps({"status": "cancelled", "message": f"{action.title()} cancelled."})
 

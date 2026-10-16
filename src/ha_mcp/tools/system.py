@@ -5,6 +5,7 @@ import logging
 
 from fastmcp import Context
 
+from ha_mcp.ha_client.models import HAConnectionError, HAConnectionLost
 from ha_mcp.util.context import get_clients
 from ha_mcp.util.dry_run import confirm_change
 
@@ -99,7 +100,7 @@ def register_system_tools(mcp_server):
 
     @mcp_server.tool()
     async def reload_domain(
-        ctx: Context, domain: str, skip_confirm: bool = False
+        ctx: Context, domain: str
     ) -> str:
         """Reload a configuration domain so YAML/config changes take effect.
 
@@ -110,7 +111,6 @@ def register_system_tools(mcp_server):
 
         Args:
             domain: The domain to reload (or 'homeassistant' for reload_all).
-            skip_confirm: If true, skip the confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         service = "reload_all" if domain == "homeassistant" else "reload"
@@ -118,7 +118,6 @@ def register_system_tools(mcp_server):
         if not await confirm_change(
             ctx=ctx, action="RELOAD", entity_type="domain",
             identifier=f"{domain}.{service}", config={"domain": domain, "service": service},
-            skip_confirm=skip_confirm,
         ):
             return json.dumps({"status": "cancelled", "message": "Reload cancelled."})
 
@@ -127,7 +126,7 @@ def register_system_tools(mcp_server):
 
     @mcp_server.tool()
     async def restart_home_assistant(
-        ctx: Context, safe_mode: bool = False, skip_confirm: bool = False
+        ctx: Context, safe_mode: bool = False
     ) -> str:
         """Restart the Home Assistant core (validates config first).
 
@@ -136,7 +135,6 @@ def register_system_tools(mcp_server):
 
         Args:
             safe_mode: Restart into safe mode (custom integrations disabled).
-            skip_confirm: If true, skip the confirmation prompt.
         """
         ws, rest = get_clients(ctx)
 
@@ -155,12 +153,14 @@ def register_system_tools(mcp_server):
         if not await confirm_change(
             ctx=ctx, action="RESTART", entity_type="core",
             identifier="homeassistant", config={"safe_mode": safe_mode},
-            skip_confirm=skip_confirm,
         ):
             return json.dumps({"status": "cancelled", "message": "Restart cancelled."})
 
         data = {"safe_mode": True} if safe_mode else {}
-        await ws.send_command(
-            "call_service", domain="homeassistant", service="restart", service_data=data
-        )
+        try:
+            await ws.send_command(
+                "call_service", domain="homeassistant", service="restart", service_data=data
+            )
+        except (HAConnectionLost, HAConnectionError, TimeoutError):
+            pass
         return json.dumps({"status": "restarting", "safe_mode": safe_mode})
