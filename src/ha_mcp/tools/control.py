@@ -17,6 +17,17 @@ from ha_mcp.util.dry_run import confirm_change
 
 logger = logging.getLogger(__name__)
 
+BLOCKED_DOMAINS = {"shell_command", "python_script", "pyscript", "hassio", "command_line"}
+BLOCKED_SERVICES = {
+    ("homeassistant", "stop"),
+    ("homeassistant", "restart"),
+    ("recorder", "purge"),
+    ("recorder", "purge_entities"),
+    ("recorder", "disable"),
+    ("backup", "create"),
+    ("backup", "create_automatic"),
+}
+
 
 def register_control_tools(mcp_server):
     """Register device-control tools on the MCP server."""
@@ -27,7 +38,6 @@ def register_control_tools(mcp_server):
         domain: str,
         service: str,
         data: str | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Call a Home Assistant service to control a device or trigger an action.
 
@@ -39,6 +49,10 @@ def register_control_tools(mcp_server):
             - Run a script: domain='script', service='turn_on',
               data='{"entity_id": "script.bedtime"}'
 
+        Only available when device control is enabled in the server settings.
+        Shell/Python execution, Supervisor (hassio.*), stop/restart and recorder
+        purge services are always blocked.
+
         Use ``list_services`` to discover valid domains, services, and fields,
         and ``resolve_target`` to preview which entities a target covers.
 
@@ -47,10 +61,15 @@ def register_control_tools(mcp_server):
             service: Service name (e.g. 'turn_on', 'set_temperature').
             data: Optional JSON object string with service data / target
                 (e.g. entity_id, area_id, device_id, and service params).
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Returns the list of states changed by the call (when HA reports them).
         """
+        if domain in BLOCKED_DOMAINS or (domain, service) in BLOCKED_SERVICES:
+            return json.dumps({
+                "error": f"{domain}.{service} is blocked for this MCP server. Use the "
+                "dedicated tools (restart_home_assistant, create_backup) or the HA UI."
+            })
+
         _ws, rest = get_clients(ctx)
 
         service_data: dict = {}
@@ -65,7 +84,6 @@ def register_control_tools(mcp_server):
         if not await confirm_change(
             ctx=ctx, action="CALL", entity_type="service",
             identifier=f"{domain}.{service}", config=service_data,
-            skip_confirm=skip_confirm,
         ):
             return json.dumps({"status": "cancelled", "message": "Service call cancelled."})
 

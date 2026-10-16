@@ -37,7 +37,6 @@ def register_registry_edit_tools(mcp_server):
         icon: str | None = None,
         labels: list[str] | None = None,
         aliases: list[str] | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Create a new area in the area registry.
 
@@ -47,7 +46,6 @@ def register_registry_edit_tools(mcp_server):
             icon: Optional MDI icon (e.g. 'mdi:sofa').
             labels: Optional list of label IDs to attach.
             aliases: Optional list of voice-assistant aliases.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         payload = _drop_none(
@@ -62,7 +60,7 @@ def register_registry_edit_tools(mcp_server):
 
         if not await confirm_change(
             ctx=ctx, action="CREATE", entity_type="area",
-            identifier=name, config=payload, skip_confirm=skip_confirm,
+            identifier=name, config=payload,
         ):
             return json.dumps({"status": "cancelled", "message": "Area creation cancelled."})
 
@@ -78,7 +76,6 @@ def register_registry_edit_tools(mcp_server):
         icon: str | None = None,
         labels: list[str] | None = None,
         aliases: list[str] | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Update an existing area (rename, move to a floor, set icon/labels).
 
@@ -89,7 +86,6 @@ def register_registry_edit_tools(mcp_server):
             icon: New MDI icon.
             labels: Replacement list of label IDs.
             aliases: Replacement list of voice aliases.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         changes = _drop_none(
@@ -106,7 +102,7 @@ def register_registry_edit_tools(mcp_server):
 
         if not await confirm_change(
             ctx=ctx, action="UPDATE", entity_type="area",
-            identifier=area_id, config=changes, skip_confirm=skip_confirm,
+            identifier=area_id, config=changes,
         ):
             return json.dumps({"status": "cancelled", "message": "Area update cancelled."})
 
@@ -117,18 +113,17 @@ def register_registry_edit_tools(mcp_server):
 
     @mcp_server.tool()
     async def delete_area(
-        ctx: Context, area_id: str, skip_confirm: bool = False
+        ctx: Context, area_id: str
     ) -> str:
         """Delete an area from the registry.
 
         Args:
             area_id: The area to delete.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         if not await confirm_change(
             ctx=ctx, action="DELETE", entity_type="area",
-            identifier=area_id, config={"area_id": area_id}, skip_confirm=skip_confirm,
+            identifier=area_id, config={"area_id": area_id},
         ):
             return json.dumps({"status": "cancelled", "message": "Area deletion cancelled."})
 
@@ -146,7 +141,6 @@ def register_registry_edit_tools(mcp_server):
         level: int | None = None,
         icon: str | None = None,
         aliases: list[str] | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Create a new floor in the floor registry.
 
@@ -155,7 +149,6 @@ def register_registry_edit_tools(mcp_server):
             level: Optional numeric level for ordering (0 = ground).
             icon: Optional MDI icon.
             aliases: Optional list of voice aliases.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         payload = _drop_none(
@@ -163,7 +156,7 @@ def register_registry_edit_tools(mcp_server):
         )
         if not await confirm_change(
             ctx=ctx, action="CREATE", entity_type="floor",
-            identifier=name, config=payload, skip_confirm=skip_confirm,
+            identifier=name, config=payload,
         ):
             return json.dumps({"status": "cancelled", "message": "Floor creation cancelled."})
 
@@ -178,7 +171,6 @@ def register_registry_edit_tools(mcp_server):
         level: int | None = None,
         icon: str | None = None,
         aliases: list[str] | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Update an existing floor (rename, set level/icon/aliases).
 
@@ -188,7 +180,6 @@ def register_registry_edit_tools(mcp_server):
             level: New numeric level.
             icon: New MDI icon.
             aliases: Replacement list of voice aliases.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         changes = _drop_none(
@@ -199,7 +190,7 @@ def register_registry_edit_tools(mcp_server):
 
         if not await confirm_change(
             ctx=ctx, action="UPDATE", entity_type="floor",
-            identifier=floor_id, config=changes, skip_confirm=skip_confirm,
+            identifier=floor_id, config=changes,
         ):
             return json.dumps({"status": "cancelled", "message": "Floor update cancelled."})
 
@@ -210,18 +201,17 @@ def register_registry_edit_tools(mcp_server):
 
     @mcp_server.tool()
     async def delete_floor(
-        ctx: Context, floor_id: str, skip_confirm: bool = False
+        ctx: Context, floor_id: str
     ) -> str:
         """Delete a floor from the registry.
 
         Args:
             floor_id: The floor to delete.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         if not await confirm_change(
             ctx=ctx, action="DELETE", entity_type="floor",
-            identifier=floor_id, config={"floor_id": floor_id}, skip_confirm=skip_confirm,
+            identifier=floor_id, config={"floor_id": floor_id},
         ):
             return json.dumps({"status": "cancelled", "message": "Floor deletion cancelled."})
 
@@ -239,7 +229,6 @@ def register_registry_edit_tools(mcp_server):
         color: str | None = None,
         icon: str | None = None,
         description: str | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Create a new label in the label registry.
 
@@ -248,7 +237,6 @@ def register_registry_edit_tools(mcp_server):
             color: Optional color name (e.g. 'red', 'blue') or theme color.
             icon: Optional MDI icon.
             description: Optional free-text description.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         payload = _drop_none(
@@ -256,7 +244,7 @@ def register_registry_edit_tools(mcp_server):
         )
         if not await confirm_change(
             ctx=ctx, action="CREATE", entity_type="label",
-            identifier=name, config=payload, skip_confirm=skip_confirm,
+            identifier=name, config=payload,
         ):
             return json.dumps({"status": "cancelled", "message": "Label creation cancelled."})
 
@@ -271,7 +259,6 @@ def register_registry_edit_tools(mcp_server):
         color: str | None = None,
         icon: str | None = None,
         description: str | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Update an existing label (rename, set color/icon/description).
 
@@ -281,7 +268,6 @@ def register_registry_edit_tools(mcp_server):
             color: New color.
             icon: New MDI icon.
             description: New description.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         changes = _drop_none(
@@ -292,7 +278,7 @@ def register_registry_edit_tools(mcp_server):
 
         if not await confirm_change(
             ctx=ctx, action="UPDATE", entity_type="label",
-            identifier=label_id, config=changes, skip_confirm=skip_confirm,
+            identifier=label_id, config=changes,
         ):
             return json.dumps({"status": "cancelled", "message": "Label update cancelled."})
 
@@ -303,18 +289,17 @@ def register_registry_edit_tools(mcp_server):
 
     @mcp_server.tool()
     async def delete_label(
-        ctx: Context, label_id: str, skip_confirm: bool = False
+        ctx: Context, label_id: str
     ) -> str:
         """Delete a label from the registry.
 
         Args:
             label_id: The label to delete.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         if not await confirm_change(
             ctx=ctx, action="DELETE", entity_type="label",
-            identifier=label_id, config={"label_id": label_id}, skip_confirm=skip_confirm,
+            identifier=label_id, config={"label_id": label_id},
         ):
             return json.dumps({"status": "cancelled", "message": "Label deletion cancelled."})
 
@@ -337,12 +322,13 @@ def register_registry_edit_tools(mcp_server):
         hidden: bool | None = None,
         disabled: bool | None = None,
         aliases: list[str] | None = None,
-        skip_confirm: bool = False,
+        display_precision: int | None = None,
     ) -> str:
         """Update an entity in the entity registry.
 
         Lets you rename an entity, change its entity_id, assign it to an area,
-        attach labels, set a custom icon, and hide or disable it.
+        attach labels, set a custom icon, hide or disable it, and set how many
+        decimals a sensor's state is displayed with.
 
         Args:
             entity_id: The entity to update (e.g. 'light.living_room').
@@ -354,12 +340,19 @@ def register_registry_edit_tools(mcp_server):
             hidden: True to hide, False to unhide.
             disabled: True to disable, False to enable.
             aliases: Replacement list of voice-assistant aliases.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
+            display_precision: Decimals to display for a sensor entity's
+                state (0-10). Only valid for ``sensor.*`` entities.
 
         Note: ``hidden``/``disabled`` map to HA's ``hidden_by``/``disabled_by``
         fields ('user' when set, null when cleared).
         """
         ws, _rest = get_clients(ctx)
+
+        if display_precision is not None:
+            if not entity_id.startswith("sensor."):
+                return json.dumps({"error": "display_precision only applies to sensor entities."})
+            if not 0 <= display_precision <= 10:
+                return json.dumps({"error": "display_precision must be between 0 and 10."})
 
         changes: dict = _drop_none(
             {
@@ -375,6 +368,13 @@ def register_registry_edit_tools(mcp_server):
             changes["hidden_by"] = "user" if hidden else None
         if disabled is not None:
             changes["disabled_by"] = "user" if disabled else None
+        if display_precision is not None:
+            # HA replaces the whole options dict for the domain, so merge to keep e.g. a unit override.
+            entry = await ws.send_command("config/entity_registry/get", entity_id=entity_id)
+            sensor_options = dict((entry or {}).get("options", {}).get("sensor", {}))
+            sensor_options["display_precision"] = display_precision
+            changes["options_domain"] = "sensor"
+            changes["options"] = sensor_options
 
         if not changes:
             return json.dumps({"error": "No fields provided to update."})
@@ -382,7 +382,7 @@ def register_registry_edit_tools(mcp_server):
         preview = {"entity_id": entity_id, **changes}
         if not await confirm_change(
             ctx=ctx, action="UPDATE", entity_type="entity",
-            identifier=entity_id, config=preview, skip_confirm=skip_confirm,
+            identifier=entity_id, config=preview,
         ):
             return json.dumps({"status": "cancelled", "message": "Entity update cancelled."})
 
@@ -403,7 +403,6 @@ def register_registry_edit_tools(mcp_server):
         area_id: str | None = None,
         labels: list[str] | None = None,
         disabled: bool | None = None,
-        skip_confirm: bool = False,
     ) -> str:
         """Update a device in the device registry (rename, assign area, label).
 
@@ -413,7 +412,6 @@ def register_registry_edit_tools(mcp_server):
             area_id: Area to assign the device (and its entities) to.
             labels: Replacement list of label IDs.
             disabled: True to disable, False to enable.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
         """
         ws, _rest = get_clients(ctx)
         changes: dict = _drop_none(
@@ -428,7 +426,7 @@ def register_registry_edit_tools(mcp_server):
         preview = {"device_id": device_id, **changes}
         if not await confirm_change(
             ctx=ctx, action="UPDATE", entity_type="device",
-            identifier=device_id, config=preview, skip_confirm=skip_confirm,
+            identifier=device_id, config=preview,
         ):
             return json.dumps({"status": "cancelled", "message": "Device update cancelled."})
 

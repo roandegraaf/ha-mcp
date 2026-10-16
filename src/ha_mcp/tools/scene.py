@@ -55,7 +55,7 @@ def register_scene_tools(mcp_server):
 
     @mcp_server.tool()
     async def create_scene(
-        ctx: Context, config: str, skip_confirm: bool = False
+        ctx: Context, config: str
     ) -> str:
         """Create a new Home Assistant scene.
 
@@ -73,7 +73,6 @@ def register_scene_tools(mcp_server):
                     },
                     "icon": "mdi:movie"
                 }
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         The scene is saved and then the scene integration is reloaded so the
         new scene appears immediately.
@@ -84,6 +83,8 @@ def register_scene_tools(mcp_server):
             scene_config = json.loads(config)
         except json.JSONDecodeError as exc:
             return json.dumps({"error": f"Invalid JSON in config: {exc}"})
+        if not isinstance(scene_config, dict):
+            return json.dumps({"error": "config must be a JSON object."})
 
         # Generate an id if not provided
         scene_id = scene_config.pop("id", None) or uuid.uuid4().hex
@@ -94,7 +95,6 @@ def register_scene_tools(mcp_server):
             entity_type="scene",
             identifier=scene_config.get("name", scene_id),
             config=scene_config,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -115,7 +115,7 @@ def register_scene_tools(mcp_server):
 
     @mcp_server.tool()
     async def update_scene(
-        ctx: Context, scene_id: str, config: str, skip_confirm: bool = False
+        ctx: Context, scene_id: str, config: str
     ) -> str:
         """Update an existing Home Assistant scene.
 
@@ -124,7 +124,6 @@ def register_scene_tools(mcp_server):
             config: JSON string containing the updated scene configuration.
                 Only the fields provided will be merged into the existing
                 configuration. Must be a valid JSON object.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Fetches the current configuration, merges the provided changes,
         shows a dry-run preview, and then saves + reloads on confirmation.
@@ -141,6 +140,8 @@ def register_scene_tools(mcp_server):
             updates = json.loads(config)
         except json.JSONDecodeError as exc:
             return json.dumps({"error": f"Invalid JSON in config: {exc}"})
+        if not isinstance(updates, dict):
+            return json.dumps({"error": "config must be a JSON object."})
 
         # Merge updates into current config
         merged_config = {**current_config, **updates}
@@ -153,7 +154,6 @@ def register_scene_tools(mcp_server):
             entity_type="scene",
             identifier=scene_id,
             config=merged_config,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:
@@ -174,13 +174,12 @@ def register_scene_tools(mcp_server):
 
     @mcp_server.tool()
     async def delete_scene(
-        ctx: Context, scene_id: str, skip_confirm: bool = False
+        ctx: Context, scene_id: str
     ) -> str:
         """Delete a Home Assistant scene.
 
         Args:
             scene_id: The scene identifier to delete.
-            skip_confirm: If true, skip the dry-run confirmation prompt.
 
         Fetches the current configuration for a preview, asks for confirmation,
         and then deletes the scene and reloads the integration.
@@ -199,7 +198,6 @@ def register_scene_tools(mcp_server):
             entity_type="scene",
             identifier=scene_id,
             config=current_config,
-            skip_confirm=skip_confirm,
         )
 
         if not confirmed:

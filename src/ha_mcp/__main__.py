@@ -17,6 +17,17 @@ def main():
         logger.error("HA_MCP_HA_TOKEN is required. Set it as an environment variable.")
         sys.exit(1)
 
+    if settings.transport != "stdio" and not settings.api_key:
+        if not settings.allow_unauthenticated:
+            logger.error(
+                "HA_MCP_API_KEY is required for the %s transport. Anyone who can "
+                "reach the port gets admin access to Home Assistant. Set "
+                "HA_MCP_ALLOW_UNAUTHENTICATED=true only on a trusted loopback setup.",
+                settings.transport,
+            )
+            sys.exit(1)
+        logger.warning("Running the %s transport WITHOUT authentication.", settings.transport)
+
     logger.info("Starting Home Assistant MCP Server (transport=%s)", settings.transport)
 
     if settings.transport == "stdio":

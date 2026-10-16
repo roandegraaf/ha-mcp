@@ -8,6 +8,7 @@ from fastmcp import Context
 
 from ha_mcp.util.context import get_clients
 from ha_mcp.util.dry_run import confirm_change
+from ha_mcp.util.validation import validate_automation
 from ha_mcp.util.yaml_util import to_yaml, diff_configs
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ def register_automation_tools(mcp_server):
 
     @mcp_server.tool()
     async def create_automation(
-        ctx: Context, config: str, skip_confirm: bool = False
+        ctx: Context, config: str
     ) -> str:
         """Create a new automation in Home Assistant.
 
@@ -74,12 +75,9 @@ def register_automation_tools(mcp_server):
                 Supported keys: alias, description, triggers, conditions,
                 actions, mode. An 'id' field is optional; one will be
                 generated if not provided.
-            skip_confirm: If True, skip the dry-run confirmation prompt and
-                apply the change immediately.
 
         The automation config is validated against the Home Assistant config
-        validator before applying. A YAML preview is shown for confirmation
-        unless skip_confirm is True.
+        validator before applying.
 
         Returns a success message with the new automation ID, or a
         cancellation/error message.
@@ -90,28 +88,20 @@ def register_automation_tools(mcp_server):
             auto_config = json.loads(config)
         except json.JSONDecodeError as e:
             return f"Error: Invalid JSON in config: {e}"
+        if not isinstance(auto_config, dict):
+            return "Error: config must be a JSON object."
 
         # Generate an ID if not provided
         auto_id = auto_config.pop("id", None) or str(uuid.uuid4())
         alias = auto_config.get("alias", auto_id)
 
         # Validate the automation config via WebSocket
-        validation_result = None
-        try:
-            validation_result = await ws.send_command(
-                "validate_config",
-                trigger=auto_config.get("triggers", auto_config.get("trigger", [])),
-                condition=auto_config.get("conditions", auto_config.get("condition", [])),
-                action=auto_config.get("actions", auto_config.get("action", [])),
-            )
-        except Exception as e:
-            logger.warning("Config validation unavailable: %s", e)
-            validation_result = {"valid": True, "warnings": [f"Validation skipped: {e}"]}
+        validation_result = await validate_automation(ws, auto_config)
 
         # Dry-run confirmation
         confirmed = await confirm_change(
             ctx, "CREATE", "automation", alias, auto_config,
-            validation_result, skip_confirm,
+            validation_result,
         )
         if not confirmed:
             return "Automation creation cancelled."
@@ -128,7 +118,7 @@ def register_automation_tools(mcp_server):
 
     @mcp_server.tool()
     async def update_automation(
-        ctx: Context, automation_id: str, config: str, skip_confirm: bool = False
+        ctx: Context, automation_id: str, config: str
     ) -> str:
         """Update an existing automation's configuration.
 
@@ -137,7 +127,6 @@ def register_automation_tools(mcp_server):
             config: A JSON string containing the new automation configuration.
                 This replaces the entire configuration; include all desired
                 fields (alias, triggers, conditions, actions, mode, etc.).
-            skip_confirm: If True, skip the dry-run confirmation prompt.
 
         Shows a diff between the current and proposed configuration for
         review. The new config is validated before applying.
@@ -156,23 +145,15 @@ def register_automation_tools(mcp_server):
             new_config = json.loads(config)
         except json.JSONDecodeError as e:
             return f"Error: Invalid JSON in config: {e}"
+        if not isinstance(new_config, dict):
+            return "Error: config must be a JSON object."
 
         # Remove 'id' from new config if present (it's the URL path param)
         new_config.pop("id", None)
         alias = new_config.get("alias", old_config.get("alias", automation_id))
 
         # Validate the new config via WebSocket
-        validation_result = None
-        try:
-            validation_result = await ws.send_command(
-                "validate_config",
-                trigger=new_config.get("triggers", new_config.get("trigger", [])),
-                condition=new_config.get("conditions", new_config.get("condition", [])),
-                action=new_config.get("actions", new_config.get("action", [])),
-            )
-        except Exception as e:
-            logger.warning("Config validation unavailable: %s", e)
-            validation_result = {"valid": True, "warnings": [f"Validation skipped: {e}"]}
+        validation_result = await validate_automation(ws, new_config)
 
         # Build a confirmation message that includes the diff
         diff_text = diff_configs(old_config, new_config)
@@ -183,7 +164,7 @@ def register_automation_tools(mcp_server):
 
         confirmed = await confirm_change(
             ctx, "UPDATE", "automation", alias, confirm_config,
-            validation_result, skip_confirm,
+            validation_result,
         )
         if not confirmed:
             return "Automation update cancelled."
@@ -200,13 +181,12 @@ def register_automation_tools(mcp_server):
 
     @mcp_server.tool()
     async def delete_automation(
-        ctx: Context, automation_id: str, skip_confirm: bool = False
+        ctx: Context, automation_id: str
     ) -> str:
         """Delete an automation from Home Assistant.
 
         Parameters:
             automation_id: The automation's internal ID (config store ID).
-            skip_confirm: If True, skip the dry-run confirmation prompt.
 
         Shows the current automation configuration for review before
         deletion. This action is irreversible.
@@ -223,7 +203,6 @@ def register_automation_tools(mcp_server):
 
         confirmed = await confirm_change(
             ctx, "DELETE", "automation", automation_id, current_config,
-            skip_confirm=skip_confirm,
         )
         if not confirmed:
             return "Automation deletion cancelled."

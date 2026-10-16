@@ -1,46 +1,47 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# s6-overlay writes environment variables to files instead of inheriting them
-# as shell env vars. Source them so SUPERVISOR_TOKEN etc. are available.
-if [ -d /run/s6/container_environment ]; then
-    for f in /run/s6/container_environment/*; do
-        if [ -f "$f" ]; then
-            export "$(basename "$f")=$(cat "$f")"
-        fi
-    done
+# s6-overlay stores the container environment as files instead of shell env vars.
+if [ -f /run/s6/container_environment/SUPERVISOR_TOKEN ]; then
+    SUPERVISOR_TOKEN="$(cat /run/s6/container_environment/SUPERVISOR_TOKEN)"
 fi
 
-# Read configuration from /data/options.json directly (avoids Supervisor API dependency)
-if [ -f /data/options.json ]; then
-    TRANSPORT=$(python3 -c "import json; print(json.load(open('/data/options.json')).get('transport', 'http'))")
-    LOG_LEVEL=$(python3 -c "import json; print(json.load(open('/data/options.json')).get('log_level', 'INFO'))")
-else
-    TRANSPORT="http"
-    LOG_LEVEL="INFO"
-fi
-
-# Get Supervisor token for HA API access
-HA_TOKEN="${SUPERVISOR_TOKEN:-}"
-if [ -z "${HA_TOKEN}" ]; then
+if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
     echo "[FATAL] SUPERVISOR_TOKEN not available. Ensure homeassistant_api is enabled in config.yaml."
     exit 1
 fi
 
-# Export environment variables for the MCP server
+option() {
+    python3 - "$1" "$2" <<'PY'
+import json, sys
+value = json.load(open("/data/options.json")).get(sys.argv[1], sys.argv[2])
+print(str(value).lower() if isinstance(value, bool) else value)
+PY
+}
+
+KEY_FILE=/data/api_key
+API_KEY="$(option api_key '')"
+if [ -z "${API_KEY}" ]; then
+    if [ ! -s "${KEY_FILE}" ]; then
+        (umask 077 && python3 -c "import secrets; print(secrets.token_urlsafe(32))" > "${KEY_FILE}")
+        echo "[INFO] Generated a new API key. Open the MCP Server panel to copy it."
+    fi
+    API_KEY="$(cat "${KEY_FILE}")"
+fi
+
 export HA_MCP_HA_URL="http://supervisor/core"
-export HA_MCP_HA_TOKEN="${HA_TOKEN}"
-export HA_MCP_TRANSPORT="${TRANSPORT}"
+export HA_MCP_HA_TOKEN="${SUPERVISOR_TOKEN}"
+export HA_MCP_TRANSPORT="http"
 export HA_MCP_HOST="0.0.0.0"
 export HA_MCP_PORT=8099
-export HA_MCP_LOG_LEVEL="${LOG_LEVEL}"
+export HA_MCP_API_KEY="${API_KEY}"
+export HA_MCP_LOG_LEVEL="$(option log_level INFO)"
+export HA_MCP_CONFIRM_MODE="$(option confirm_mode client)"
+export HA_MCP_READ_ONLY="$(option read_only false)"
+export HA_MCP_ENABLE_DEVICE_CONTROL="$(option enable_device_control false)"
 
-echo "[INFO] Starting Home Assistant MCP Server..."
-echo "[INFO] Transport: ${TRANSPORT}"
-echo "[INFO] Log Level: ${LOG_LEVEL}"
+echo "[INFO] Starting Home Assistant MCP Server (confirm_mode=${HA_MCP_CONFIRM_MODE}, read_only=${HA_MCP_READ_ONLY}, device_control=${HA_MCP_ENABLE_DEVICE_CONTROL})"
 
-# Start the ingress web UI server in background
-python3 -m http.server 8100 --directory /www &
+python3 /guide_server.py &
 
-# Run the MCP server
 exec python3 -m ha_mcp
