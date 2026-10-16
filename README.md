@@ -11,6 +11,46 @@ It is aimed at configuration, not day-to-day device control. The generic
 
 ## Features
 
+- **Registry queries** -- list and search devices, entities, areas,
+  floors, and labels
+- **Registry editing** -- create/update/delete areas, floors, and
+  labels; rename entities and devices, assign them to areas, attach
+  labels, and hide/disable them
+- **Device control** -- call any Home Assistant service to actuate
+  devices (turn lights on/off, set a thermostat, run a script)
+- **Integration management** -- list, reload, and enable/disable
+  configured integrations (config entries)
+- **Backups** -- list existing backups and create a new full backup
+- **System control** -- reload a config domain, restart core (with a
+  config check first), inspect core config, system health, and the
+  available services
+- **Live events** -- listen to Home Assistant events for a bounded
+  window (e.g. to watch what a device does)
+- **State inspection** -- read entity states, history, logbook
+  entries, error logs, and render Jinja2 templates
+- **Automation management** -- full CRUD, toggle, duplicate,
+  execution-trace debugging, and conflict detection for automations
+- **Script management** -- create, read, update, and delete scripts
+- **Scene management** -- create, read, update, and delete scenes
+- **Helper management** -- create, update, and delete input helpers
+  (`input_boolean`, `input_number`, `input_text`, `input_select`,
+  `input_datetime`, `input_button`)
+- **Timer management** -- create timer helpers in Home Assistant
+- **Template sensor management** -- create UI-managed Template sensors
+  and binary sensors
+- **Group and Integral Sensor helpers** -- create UI-managed entity
+  groups and Riemann-sum integral sensors
+- **Dashboard management** -- manage Lovelace dashboards, views,
+  and cards
+- **Blueprint management** -- list, import, and create automations
+  or scripts from blueprints
+- **Configuration validation** -- validate automation configs,
+  check HA core configuration, and validate YAML syntax
+- **Proactive suggestions** -- analyze device coverage, suggest
+  automations, detect conflicts, and suggest dashboard layouts
+- **Guided workflows** -- six prompt templates for common tasks
+  like creating automations, building dashboards, and
+  troubleshooting
 - **Integration setup** -- start and step through config flows, options
   flows and subentry flows; handle discovered and ignored flows; delete
   integrations
@@ -124,6 +164,14 @@ ha-mcp            # serves http://127.0.0.1:8099/mcp
 
 ## Documentation
 
+- [Configuration](docs/configuration.md) -- environment variables,
+  transport options, and client setup
+- [Tools reference](docs/tools.md) -- all 85 MCP tools with
+  parameters and descriptions
+- [Prompts reference](docs/prompts.md) -- guided workflow
+  templates
+- [Architecture](docs/architecture.md) -- project structure,
+  module design, and extension guide
 - [Configuration](docs/configuration.md) -- settings, confirmation,
   client setup
 - [Tools reference](docs/tools.md) -- all 110 tools

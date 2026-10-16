@@ -1,5 +1,8 @@
 # Tools reference
 
+Home Assistant MCP Server exposes 85 tools organized into 13
+categories. Each tool accepts a `ctx` parameter automatically
+provided by the MCP framework -- you don't need to supply it.
 The server exposes 109 tools by default (110 with `enable_device_control`,
 53 in `read_only` mode). Every tool also receives a `ctx` parameter from
 the MCP framework; you never supply it. All tools return JSON strings.
@@ -296,6 +299,25 @@ This file is generated from the live tool registry.
 
 ### `update_entity`
 
+### `get_all_automation_traces`
+
+Fetch every stored execution trace for every automation. The response
+groups full trace data by automation, including execution paths,
+evaluated variables, and action results. No parameters.
+
+Use `get_automation_traces` to fetch a limited number of recent traces
+for one automation.
+
+### `get_automation_traces`
+
+Fetch recent execution traces for one automation.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `automation_id` | `string` | Yes | Automation entity ID (for example, `automation.garage_door`) |
+| `limit` | `integer` | No | Number of traces to fetch, from 1 to 10 (default: `3`) |
+
+### `get_automation`
 *writes*. Update an entity in the entity registry.
 
 | Parameter | Type | Required |
@@ -521,6 +543,88 @@ This file is generated from the live tool registry.
 |---|---|---|
 | `scene_id` | `string` | Yes |
 
+## Timer tools
+
+Tools for managing Home Assistant timer helpers.
+
+### `create_timer`
+
+Create a timer helper through Home Assistant's WebSocket API. The timer
+is created in Home Assistant's UI-managed helper storage, not in YAML.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Timer name shown in Home Assistant |
+| `duration` | `string` | Yes | Timer duration (for example, `00:05:00`) |
+| `restore` | `boolean` | No | Restore the timer state after Home Assistant restarts (default: `false`) |
+| `icon` | `string` | No | Optional MDI icon |
+| `skip_confirm` | `boolean` | No | Skip the confirmation prompt |
+
+## Template sensor tools
+
+Tools for creating UI-managed Template sensor helpers through Home
+Assistant's Template integration config flow.
+
+### `create_template_sensor`
+
+Create a Template sensor helper. The `state_template` is a Jinja2
+template that produces the sensor state.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Sensor name shown in Home Assistant |
+| `state_template` | `string` | Yes | Jinja2 state template |
+| `device_class` | `string` | No | Optional sensor device class |
+| `unit_of_measurement` | `string` | No | Optional unit, such as `C` or `%` |
+| `state_class` | `string` | No | Optional state class, such as `measurement` |
+| `skip_confirm` | `boolean` | No | Skip the confirmation prompt |
+
+### `create_template_binary_sensor`
+
+Create a Template binary sensor helper. Its state template should
+evaluate to `true` or `false`.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Binary sensor name shown in Home Assistant |
+| `state_template` | `string` | Yes | Jinja2 template that evaluates to true or false |
+| `device_class` | `string` | No | Optional binary sensor device class |
+| `skip_confirm` | `boolean` | No | Skip the confirmation prompt |
+
+## Group and Integral Sensor tools
+
+Create UI-managed Group and Integral Sensor helpers through their
+Home Assistant integration config flows.
+
+### `create_group_helper`
+
+Create a typed group from compatible entity IDs.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Group name shown in Home Assistant |
+| `group_type` | `string` | Yes | One of `binary_sensor`, `button`, `cover`, `event`, `fan`, `light`, `lock`, `media_player`, `notify`, `sensor`, `switch`, or `valve` |
+| `entities` | `string[]` | Yes | At least one member entity ID compatible with the selected group type |
+| `hide_members` | `boolean` | No | Hide member entities from the UI (default: `false`) |
+| `all_entities_on` | `boolean` | No | For binary sensor, light, or switch groups, require all members on (default: `false`) |
+| `statistic_type` | `string` | For sensor groups | One of `last`, `first_available`, `max`, `mean`, `median`, `min`, `product`, `range`, `stdev`, or `sum` |
+| `skip_confirm` | `boolean` | No | Skip the confirmation prompt |
+
+### `create_integral_sensor`
+
+Create a Riemann-sum Integral Sensor helper from a numeric source entity.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Integral sensor name |
+| `source_sensor` | `string` | Yes | Source entity ID from `sensor`, `number`, or `input_number` |
+| `unit_time` | `string` | No | `seconds`, `minutes`, `hours`, or `days` (default: `hours`; mapped to Home Assistant's `s`, `min`, `h`, `d` values) |
+| `method` | `string` | No | `trapezoidal`, `left`, or `right` (default: `trapezoidal`) |
+| `unit_prefix` | `string` | No | Optional unit prefix: `k`, `M`, `G`, or `T` |
+| `round_digits` | `integer` | No | Optional rounding precision from 0 to 6 |
+| `skip_confirm` | `boolean` | No | Skip the confirmation prompt |
+
+## Helper tools
 ### `get_scene`
 
 *read-only*. Get the full configuration of a Home Assistant scene.
@@ -535,6 +639,8 @@ This file is generated from the live tool registry.
 
 ### `update_scene`
 
+Create a new input helper entity. This tool already supports the
+requested `input_boolean`, `input_datetime`, and `input_number` types.
 *writes*. Update an existing Home Assistant scene.
 
 | Parameter | Type | Required |
