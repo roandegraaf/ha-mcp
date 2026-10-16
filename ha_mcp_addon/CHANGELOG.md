@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.10
+
+- Expose recent Home Assistant automation traces through the
+  `get_automation_traces` MCP tool
+
 ## 0.1.0
 
 - Initial release

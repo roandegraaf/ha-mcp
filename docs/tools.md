@@ -1,6 +1,6 @@
 # Tools reference
 
-Home Assistant MCP Server exposes 54 tools organized into 10
+Home Assistant MCP Server exposes 79 tools organized into 10
 categories. Each tool accepts a `ctx` parameter automatically
 provided by the MCP framework -- you don't need to supply it.
 
@@ -177,6 +177,16 @@ configuration. No confirmation required.
 |---|---|---|---|
 | `entity_id` | `string` | Yes | Automation entity ID (for example, `automation.morning_lights`) |
 | `enabled` | `boolean` | Yes | `true` to enable, `false` to disable |
+
+### `get_automation_traces`
+
+Fetch recent stored traces for an automation. Returns full trace
+details, including trigger data and action results.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `automation_id` | `string` | Yes | Automation entity ID (for example, `automation.garage_door`) |
+| `limit` | `integer` | No | Number of most recent traces to return (1–10; default 3) |
 
 ### `duplicate_automation`
 

@@ -33,7 +33,8 @@ based on your setup.
 - **State inspection** -- read entity states, history, logbook
   entries, error logs, and render Jinja2 templates
 - **Automation management** -- full CRUD, toggle, duplicate, and
-  conflict detection for automations
+  conflict detection for automations; retrieve recent automation
+  traces for debugging
 - **Script management** -- create, read, update, and delete scripts
 - **Scene management** -- create, read, update, and delete scenes
 - **Helper management** -- create, update, and delete input helpers
@@ -244,7 +245,7 @@ For detailed configuration guidance, see
 
 - [Configuration](docs/configuration.md) -- environment variables,
   transport options, and client setup
-- [Tools reference](docs/tools.md) -- all 54 MCP tools with
+- [Tools reference](docs/tools.md) -- all 79 MCP tools with
   parameters and descriptions
 - [Prompts reference](docs/prompts.md) -- guided workflow
   templates

@@ -36,7 +36,7 @@ MCP server for managing Home Assistant — config CRUD, registry read/write, dev
 - Circular import: `server.py` imports tools → tools must NOT import from `server.py` → use `util/context.py`
 
 ## Counts
-- 78 tools, 6 prompts, 1 resource template, 40 source files
+- 79 tools, 6 prompts, 1 resource template, 40 source files
 - Tools span config CRUD (automation/script/scene/helper/dashboard/blueprint),
   registry read + write (area/floor/label/entity/device), state/history,
   device control (`call_service`), integrations, backups, system reload/restart,
