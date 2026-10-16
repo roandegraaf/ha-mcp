@@ -127,7 +127,7 @@ class HAWebSocketClient:
             future: asyncio.Future[dict[str, Any]] = loop.create_future()
             self._pending[msg_id] = future
 
-            message: dict[str, Any] = {"id": msg_id, "type": msg_type, **kwargs}
+            message: dict[str, Any] = {**kwargs, "id": msg_id, "type": msg_type}
 
             try:
                 await self._ws.send_json(message)
@@ -192,14 +192,14 @@ class HAWebSocketClient:
             msg_id = self._msg_id
 
             loop = asyncio.get_running_loop()
-            queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+            queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
             future: asyncio.Future[dict[str, Any]] = loop.create_future()
             # Register the queue *before* sending so no event can be missed
             # between the ack and the first event.
             self._subscriptions[msg_id] = queue
             self._pending[msg_id] = future
 
-            message: dict[str, Any] = {"id": msg_id, "type": msg_type, **kwargs}
+            message: dict[str, Any] = {**kwargs, "id": msg_id, "type": msg_type}
 
             try:
                 await self._ws.send_json(message)
@@ -295,8 +295,10 @@ class HAWebSocketClient:
                         if not future.done():
                             future.set_result(msg)
                     elif msg.get("type") == "event" and msg_id in self._subscriptions:
-                        # Route subscription events to the registered queue.
-                        self._subscriptions[msg_id].put_nowait(msg.get("event", {}))
+                        try:
+                            self._subscriptions[msg_id].put_nowait(msg.get("event", {}))
+                        except asyncio.QueueFull:
+                            logger.debug("Dropping event for subscription id=%s (queue full)", msg_id)
                     elif msg.get("type") == "event":
                         logger.debug(
                             "Unhandled event for id=%s: %s",

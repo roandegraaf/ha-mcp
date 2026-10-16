@@ -1,59 +1,54 @@
 # Home Assistant MCP Server
 
-This add-on runs an MCP (Model Context Protocol) server that gives AI assistants the ability to manage your Home Assistant configuration. It provides tools for reading device and entity states, creating and editing automations, scripts, scenes, helpers, dashboards, and blueprints.
+This add-on runs an MCP (Model Context Protocol) server that lets AI
+assistants such as Claude Code and Claude Desktop set up and maintain
+your Home Assistant: add integrations, organise devices and entities,
+and build automations, scripts, scenes, helpers and dashboards. It can
+also fix repairs, debug automation traces and manage backups.
 
-## How it works
+## Getting started
 
-The add-on runs a standalone MCP server inside Home Assistant OS. It authenticates automatically using the Supervisor API token — no long-lived access token needed. MCP clients (like Claude Code or Claude Desktop) connect to the server over HTTP on port 8099.
+1. Start the add-on.
+2. Open the **MCP Server** panel in the sidebar (or **OPEN WEB UI** on
+   the add-on page).
+3. Pick your client and copy the snippet. It already contains your
+   host, port and API key.
 
-Pre-built Docker images are pulled from GitHub Container Registry, so installation takes about a minute — even on a Raspberry Pi.
-
-## Installation
-
-1. In Home Assistant, go to **Settings > Add-ons > Add-on Store**.
-2. Click the overflow menu (**⋮**) in the top right, then **Repositories**.
-3. Paste the repository URL and click **Add**:
-   ```
-   https://github.com/roandegraaf/ha-mcp
-   ```
-4. Close the dialog. Find **Home Assistant MCP Server** in the store and click **Install**.
-5. After installation, go to the **Configuration** tab. The defaults work for most setups.
-6. Click **Start**.
+The MCP endpoint is `http://<your-ha-host>:8099/mcp`. Every request must
+carry `Authorization: Bearer <API_KEY>`.
 
 ## Configuration
 
 | Option | Default | Description |
-|--------|---------|-------------|
-| `transport` | `http` | Transport protocol. Use `http` (supports both streamable-HTTP and SSE fallback). |
-| `log_level` | `INFO` | Logging verbosity: `DEBUG`, `INFO`, `WARNING`, or `ERROR`. |
+|---|---|---|
+| `api_key` | *(empty)* | Leave empty to use the auto-generated key shown in the panel. Enter your own value to override or rotate it, then restart. |
+| `confirm_mode` | `client` | `client`: rely on your AI client's tool-approval prompt. `elicit`: the server asks for confirmation itself (only for clients that support MCP elicitation). |
+| `read_only` | `false` | Only expose tools that read configuration. |
+| `enable_device_control` | `false` | Expose the generic `call_service` tool for turning devices on/off. |
+| `log_level` | `INFO` | `DEBUG`, `INFO`, `WARNING` or `ERROR`. |
 
-The server listens on port **8099** by default. You can change the host port mapping in the add-on's **Network** configuration panel.
+The 0.1.x `transport` option is gone; the add-on always uses streamable
+HTTP. You can change the host port in the **Network** panel.
 
-## Connection Guide (Web UI)
-
-After starting the add-on, open the **MCP Server** panel in the Home Assistant sidebar (or click **OPEN WEB UI** on the add-on page). This connection guide auto-detects your Home Assistant hostname and shows ready-to-copy configuration snippets for all popular MCP clients.
-
-You can override the hostname if the auto-detected value is wrong (e.g., when connecting from an external network or through a reverse proxy).
-
-## Connecting MCP clients
-
-Your MCP server URL is:
-
-```
-http://<your-ha-hostname-or-ip>:8099/mcp/
-```
-
-Replace `<your-ha-hostname-or-ip>` with your Home Assistant's hostname or IP address (e.g., `homeassistant.local` or `192.168.1.50`). The easiest way to get a ready-to-use config is through the **Connection Guide** web UI above.
+## Connecting clients
 
 ### Claude Code
 
-Add to your project's `.mcp.json` (or `~/.claude/.mcp.json` for global access):
+```bash
+claude mcp add --transport http --scope user home-assistant http://homeassistant.local:8099/mcp \
+  --header "Authorization: Bearer <API_KEY>"
+```
+
+For a single project, add this to `.mcp.json` and export
+`HA_MCP_API_KEY` in your shell:
 
 ```json
 {
   "mcpServers": {
     "home-assistant": {
-      "url": "http://homeassistant.local:8099/mcp/"
+      "type": "http",
+      "url": "http://homeassistant.local:8099/mcp",
+      "headers": { "Authorization": "Bearer ${HA_MCP_API_KEY}" }
     }
   }
 }
@@ -61,117 +56,57 @@ Add to your project's `.mcp.json` (or `~/.claude/.mcp.json` for global access):
 
 ### Claude Desktop
 
-Claude Desktop requires `mcp-remote` (via Node.js/npx) to connect to remote MCP servers. Add to your `claude_desktop_config.json`:
-
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+Requires Node.js. Merge this into `claude_desktop_config.json`
+(Settings > Developer > Edit Config), then fully restart Claude Desktop:
 
 ```json
 {
   "mcpServers": {
     "home-assistant": {
       "command": "npx",
-      "args": ["mcp-remote", "http://homeassistant.local:8099/mcp/"]
+      "args": ["-y", "mcp-remote", "http://homeassistant.local:8099/mcp",
+               "--allow-http", "--header", "Authorization:${AUTH_HEADER}"],
+      "env": { "AUTH_HEADER": "Bearer <API_KEY>" }
     }
   }
 }
 ```
 
-> **Prerequisite:** Node.js must be installed for `npx` to work.
+Custom connectors (Settings > Connectors) can't be used: they connect
+from Anthropic's cloud and can't reach your home network.
 
-### Cursor
+### Cursor, VS Code and others
 
-Add to `.cursor/mcp.json` in your project root:
+The **MCP Server** panel has snippets for these too. Any client with
+Streamable HTTP support works with the endpoint and header above.
 
-```json
-{
-  "mcpServers": {
-    "home-assistant": {
-      "url": "http://homeassistant.local:8099/mcp/"
-    }
-  }
-}
-```
+## Security
 
-### Windsurf
-
-Add to `~/.codeium/windsurf/mcp_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "home-assistant": {
-      "serverUrl": "http://homeassistant.local:8099/mcp/"
-    }
-  }
-}
-```
-
-### VS Code (Copilot / Continue)
-
-For **GitHub Copilot** in VS Code, add to your `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "home-assistant": {
-      "url": "http://homeassistant.local:8099/mcp/"
-    }
-  }
-}
-```
-
-For the **Continue** extension, add to `.continue/config.yaml`:
-
-```yaml
-mcpServers:
-  - name: home-assistant
-    url: http://homeassistant.local:8099/mcp/
-```
-
-### Other MCP clients
-
-Any MCP client that supports HTTP transport can connect directly to:
-
-```
-http://homeassistant.local:8099/mcp/
-```
+- Anyone with the API key and network access to port 8099 has full
+  admin access to Home Assistant. Treat the key like a password.
+- The connection is plain HTTP. Use it on a trusted network, or put it
+  behind a VPN or an HTTPS reverse proxy. Don't forward port 8099 to
+  the internet.
+- The panel showing the key is only reachable through Home Assistant
+  ingress, which requires an admin login.
+- Shell/Python execution, Supervisor services, stop/restart and recorder
+  purge are always blocked in `call_service`.
 
 ## Troubleshooting
 
-### Add-on won't start
+- **401 Unauthorized** -- the client isn't sending the header, or the
+  key changed. Copy a fresh snippet from the panel.
+- **Can't connect** -- check the add-on is running and port 8099 is
+  mapped in **Network**. Try the IP address instead of
+  `homeassistant.local`. Use `/mcp`, not `/mcp/`.
+- **"requires an in-client confirmation"** -- `confirm_mode` is `elicit`
+  but your client can't show the prompt. Switch to `client`.
+- **A tool isn't listed** -- `read_only` hides all write tools, and
+  `call_service` needs `enable_device_control`.
 
-Check the add-on logs for error messages. Common issues:
+## Status
 
-- **Port conflict:** Another service is using port 8099. Change the host port in the add-on's **Network** settings.
-- **Missing Supervisor token:** The add-on requires `homeassistant_api: true` to receive the Supervisor token. This is configured automatically.
-
-### MCP client can't connect
-
-- Verify the add-on is running (check the add-on info panel).
-- Ensure the port is exposed: in the add-on's **Network** configuration, the host port should be set (default: 8099).
-- Try using the IP address instead of `homeassistant.local`.
-- Check that your client and HA instance are on the same network, or that appropriate port forwarding is configured.
-
-### "Unauthorized" or authentication errors
-
-The add-on authenticates automatically via the Supervisor API. If you see auth errors in the logs, try restarting the add-on. If the issue persists, restart Home Assistant.
-
-### Slow installation
-
-The add-on uses pre-built Docker images from GitHub Container Registry. If installation is slow, check your internet connection. If the pre-built image is unavailable, HA will fall back to building from source, which can take 10-20 minutes on a Raspberry Pi.
-
-## What this add-on can do
-
-- **Registry queries** — list and search devices, entities, areas, floors, and labels
-- **State inspection** — read entity states, history, logbook entries, error logs, and render Jinja2 templates
-- **Automation management** — full CRUD, toggle, duplicate, and conflict detection
-- **Script management** — create, read, update, and delete scripts
-- **Scene management** — create, read, update, and delete scenes
-- **Helper management** — manage input helpers (boolean, number, text, select, datetime, button)
-- **Dashboard management** — manage Lovelace dashboards, views, and cards
-- **Blueprint management** — list, import, and create from blueprints
-- **Configuration validation** — validate automations, core config, and YAML syntax
-- **Proactive suggestions** — analyze device coverage and suggest automations
-
-All mutating operations go through a dry-run and confirm flow, so you can review changes before they are applied.
+Tools added in 0.2.0 (config flows, registry removal, categories,
+diagnostics, backup configuration, `counter`/`timer`/`schedule` helpers)
+are not yet verified against a live Home Assistant. Please report
+issues on GitHub.

@@ -1,4 +1,4 @@
-"""Helper (input entity) tools for managing Home Assistant input_* helpers via WebSocket API."""
+"""Helper tools for UI-managed (storage collection) helpers via the WebSocket API."""
 
 import json
 import logging
@@ -17,7 +17,16 @@ VALID_HELPER_TYPES = (
     "input_select",
     "input_datetime",
     "input_button",
+    "counter",
+    "timer",
+    "schedule",
 )
+
+_RESERVED_KEYS = ("id", "type")
+
+
+class HelperError(Exception):
+    pass
 
 
 def _validate_helper_type(helper_type: str) -> None:
@@ -29,103 +38,130 @@ def _validate_helper_type(helper_type: str) -> None:
         )
 
 
+def _parse_config(config: str) -> dict:
+    try:
+        config_dict = json.loads(config)
+    except json.JSONDecodeError as exc:
+        raise HelperError(f"Invalid JSON in config: {exc}") from exc
+    if not isinstance(config_dict, dict):
+        raise HelperError("config must be a JSON object")
+    return {k: v for k, v in config_dict.items() if k not in _RESERVED_KEYS and not k.endswith("_id")}
+
+
+def _check_domain(helper_type: str, entity_id: str) -> None:
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+    if domain != helper_type:
+        raise HelperError(
+            f"entity_id domain '{domain}' does not match helper_type '{helper_type}'"
+        )
+
+
+async def _resolve_storage_item(ws, helper_type: str, entity_id: str) -> dict:
+    """Return the storage collection item backing entity_id.
+
+    Storage helpers register their collection item id as the entity's unique_id.
+    YAML-defined helpers are absent from ``<type>/list`` and cannot be edited here.
+    """
+    try:
+        entry = await ws.send_command("config/entity_registry/get", entity_id=entity_id)
+    except Exception as exc:
+        raise HelperError(
+            f"{entity_id} is not in the entity registry ({exc}); it is probably "
+            "defined in YAML and must be edited in configuration.yaml."
+        ) from exc
+
+    item_id = (entry or {}).get("unique_id")
+    items = await ws.send_command(f"{helper_type}/list") or []
+    for item in items:
+        if item.get("id") == item_id:
+            return item
+    raise HelperError(
+        f"{entity_id} is not a UI-managed {helper_type} helper (no storage item with id "
+        f"{item_id!r}); it is probably defined in YAML."
+    )
+
+
 def register_helper_tools(mcp_server):
-    """Register all helper (input entity) tools on the MCP server."""
+    """Register all helper tools on the MCP server."""
 
     @mcp_server.tool()
     async def list_helpers(
         ctx: Context,
         helper_type: str | None = None,
     ) -> str:
-        """List all input helper entities in Home Assistant.
-
-        Returns a JSON array of state objects for input_boolean, input_number,
-        input_text, input_select, input_datetime, and input_button entities.
+        """List helper entities (input_*, counter, timer, schedule) and their states.
 
         Args:
-            helper_type: Optional filter to a specific helper type (e.g.
-                'input_boolean', 'input_number'). When omitted, all input
-                helper entities are returned.
+            helper_type: Optional filter to one helper type, e.g. 'input_boolean'
+                or 'counter'. When omitted, all supported helper types are returned.
 
-        This is useful for discovering existing helpers or checking their
-        current values before creating or updating them.
+        To see the stored configuration of UI-managed helpers (min/max, options,
+        schedule blocks, ...), call with a helper_type and read ``storage_items``.
         """
         if helper_type is not None:
             _validate_helper_type(helper_type)
 
-        _ws, rest = get_clients(ctx)
+        ws, rest = get_clients(ctx)
         states = await rest.get_states()
+        types = (helper_type,) if helper_type else VALID_HELPER_TYPES
+        helpers = [
+            s for s in states
+            if s.get("entity_id", "").split(".", 1)[0] in types
+        ]
+        if not helper_type:
+            return json.dumps(helpers, indent=2)
 
-        if helper_type:
-            prefix = f"{helper_type}."
-            helpers = [s for s in states if s.get("entity_id", "").startswith(prefix)]
-        else:
-            helpers = [
-                s
-                for s in states
-                if any(
-                    s.get("entity_id", "").startswith(f"{ht}.")
-                    for ht in VALID_HELPER_TYPES
-                )
-            ]
-
-        return json.dumps(helpers, indent=2)
+        try:
+            storage_items = await ws.send_command(f"{helper_type}/list")
+        except Exception as exc:
+            storage_items = {"error": str(exc)}
+        return json.dumps({"states": helpers, "storage_items": storage_items}, indent=2)
 
     @mcp_server.tool()
     async def create_helper(
         ctx: Context,
         helper_type: str,
         config: str,
-        skip_confirm: bool = False,
     ) -> str:
-        """Create a new input helper entity in Home Assistant.
+        """Create a new UI-managed helper in Home Assistant.
 
         Args:
-            helper_type: The type of helper to create. Must be one of:
-                input_boolean, input_number, input_text, input_select,
-                input_datetime, input_button.
-            config: A JSON string containing the helper configuration. Common
-                fields include 'name' and 'icon'. Type-specific fields:
+            helper_type: One of input_boolean, input_number, input_text,
+                input_select, input_datetime, input_button, counter, timer,
+                schedule.
+            config: JSON object with the helper configuration. 'name' is
+                required; 'icon' is optional. Type-specific fields:
                 - input_number: min, max, step, mode, unit_of_measurement
                 - input_text: min, max, pattern, mode
                 - input_select: options (list of strings)
                 - input_datetime: has_date, has_time
-                - input_boolean: (no extra required fields)
-                - input_button: (no extra required fields)
-            skip_confirm: If True, skip the dry-run confirmation prompt.
+                - counter: initial, minimum, maximum, step, restore
+                - timer: duration ("HH:MM:SS"), restore
+                - schedule: monday..sunday, each a list of
+                  {"from": "HH:MM:SS", "to": "HH:MM:SS"} blocks
 
-        Returns a JSON object with the created helper details on success.
+        Template, group, utility_meter and other config-entry helpers are set up
+        through config flows instead.
         """
         _validate_helper_type(helper_type)
-
         try:
-            config_dict = json.loads(config)
-        except json.JSONDecodeError as exc:
-            return json.dumps({"error": f"Invalid JSON in config: {exc}"})
-
-        if not isinstance(config_dict, dict):
-            return json.dumps({"error": "config must be a JSON object"})
+            config_dict = _parse_config(config)
+        except HelperError as exc:
+            return json.dumps({"error": str(exc)})
 
         name = config_dict.get("name", helper_type)
-
-        confirmed = await confirm_change(
-            ctx,
-            action="CREATE",
-            entity_type=helper_type,
-            identifier=name,
-            config=config_dict,
-            skip_confirm=skip_confirm,
-        )
-        if not confirmed:
+        if not await confirm_change(
+            ctx, action="CREATE", entity_type=helper_type, identifier=name, config=config_dict,
+        ):
             return json.dumps({"status": "cancelled", "message": "Create cancelled by user"})
 
         ws, _rest = get_clients(ctx)
         try:
             result = await ws.send_command(f"{helper_type}/create", **config_dict)
-            return json.dumps({"status": "created", "result": result}, indent=2)
         except Exception as exc:
             logger.error("Failed to create %s helper '%s': %s", helper_type, name, exc)
             return json.dumps({"error": str(exc)})
+        return json.dumps({"status": "created", "result": result}, indent=2)
 
     @mcp_server.tool()
     async def update_helper(
@@ -133,138 +169,79 @@ def register_helper_tools(mcp_server):
         helper_type: str,
         entity_id: str,
         config: str,
-        skip_confirm: bool = False,
     ) -> str:
-        """Update an existing input helper entity in Home Assistant.
+        """Update a UI-managed helper.
 
         Args:
-            helper_type: The type of helper being updated. Must be one of:
-                input_boolean, input_number, input_text, input_select,
-                input_datetime, input_button.
-            entity_id: The full entity ID of the helper to update (e.g.
-                'input_boolean.my_toggle').
-            config: A JSON string containing the fields to update. Only
-                include fields you want to change (e.g. '{"name": "New Name"}').
-            skip_confirm: If True, skip the dry-run confirmation prompt.
+            helper_type: The helper type; must match the entity_id domain.
+            entity_id: Full entity ID, e.g. 'input_boolean.my_toggle'.
+            config: JSON object with only the fields to change, e.g.
+                '{"name": "New Name"}'. Unchanged fields are preserved.
 
-        Returns a JSON object with the updated helper details on success.
-
-        Note: The helper_type must match the domain of the entity_id.
+        Only helpers created in the UI (storage helpers) can be updated;
+        YAML-defined helpers return an error.
         """
         _validate_helper_type(helper_type)
-
-        try:
-            config_dict = json.loads(config)
-        except json.JSONDecodeError as exc:
-            return json.dumps({"error": f"Invalid JSON in config: {exc}"})
-
-        if not isinstance(config_dict, dict):
-            return json.dumps({"error": "config must be a JSON object"})
-
-        # Verify entity_id domain matches helper_type
-        domain = entity_id.split(".")[0] if "." in entity_id else ""
-        if domain != helper_type:
-            return json.dumps({
-                "error": f"entity_id domain '{domain}' does not match helper_type '{helper_type}'"
-            })
-
-        # Get current state for preview context
-        _ws, rest = get_clients(ctx)
-        current_state = await rest.get_state(entity_id)
-        current_name = entity_id
-        if current_state and isinstance(current_state, dict):
-            attrs = current_state.get("attributes", {})
-            current_name = attrs.get("friendly_name", entity_id)
-
-        preview = {"entity_id": entity_id, "current_name": current_name, "changes": config_dict}
-
-        confirmed = await confirm_change(
-            ctx,
-            action="UPDATE",
-            entity_type=helper_type,
-            identifier=entity_id,
-            config=preview,
-            skip_confirm=skip_confirm,
-        )
-        if not confirmed:
-            return json.dumps({"status": "cancelled", "message": "Update cancelled by user"})
-
         ws, _rest = get_clients(ctx)
+        try:
+            _check_domain(helper_type, entity_id)
+            changes = _parse_config(config)
+            current = await _resolve_storage_item(ws, helper_type, entity_id)
+        except HelperError as exc:
+            return json.dumps({"error": str(exc)})
 
-        # The WS update command expects the internal ID. We pass entity_id and
-        # let HA resolve it. The exact field name varies by HA version; we
-        # include both common variants.
-        update_payload = {helper_type + "_id": entity_id, **config_dict}
+        item_id = current["id"]
+        merged = {k: v for k, v in current.items() if k not in _RESERVED_KEYS} | changes
+
+        if not await confirm_change(
+            ctx, action="UPDATE", entity_type=helper_type, identifier=entity_id,
+            config={"entity_id": entity_id, "current": current, "changes": changes},
+        ):
+            return json.dumps({"status": "cancelled", "message": "Update cancelled by user"})
 
         try:
             result = await ws.send_command(
-                f"{helper_type}/update", **update_payload
+                f"{helper_type}/update", **merged, **{f"{helper_type}_id": item_id}
             )
-            return json.dumps({"status": "updated", "result": result}, indent=2)
         except Exception as exc:
             logger.error("Failed to update %s '%s': %s", helper_type, entity_id, exc)
             return json.dumps({"error": str(exc)})
+        return json.dumps({"status": "updated", "result": result}, indent=2)
 
     @mcp_server.tool()
     async def delete_helper(
         ctx: Context,
         helper_type: str,
         entity_id: str,
-        skip_confirm: bool = False,
     ) -> str:
-        """Delete an input helper entity from Home Assistant.
+        """Delete a UI-managed helper permanently.
 
         Args:
-            helper_type: The type of helper to delete. Must be one of:
-                input_boolean, input_number, input_text, input_select,
-                input_datetime, input_button.
-            entity_id: The full entity ID of the helper to delete (e.g.
-                'input_boolean.my_toggle').
-            skip_confirm: If True, skip the dry-run confirmation prompt.
+            helper_type: The helper type; must match the entity_id domain.
+            entity_id: Full entity ID, e.g. 'counter.visitors'.
 
-        Returns a JSON object confirming the deletion or an error.
-
-        Warning: This action is irreversible. The helper and its state history
-        will be permanently removed.
+        Irreversible: the helper and its entity are removed. YAML-defined
+        helpers return an error.
         """
         _validate_helper_type(helper_type)
-
-        # Verify entity_id domain matches helper_type
-        domain = entity_id.split(".")[0] if "." in entity_id else ""
-        if domain != helper_type:
-            return json.dumps({
-                "error": f"entity_id domain '{domain}' does not match helper_type '{helper_type}'"
-            })
-
-        # Get current state for the confirmation preview
-        _ws, rest = get_clients(ctx)
-        current_state = await rest.get_state(entity_id)
-        preview = {"entity_id": entity_id}
-        if current_state and isinstance(current_state, dict):
-            attrs = current_state.get("attributes", {})
-            preview["friendly_name"] = attrs.get("friendly_name", entity_id)
-            preview["current_state"] = current_state.get("state")
-            preview["attributes"] = attrs
-
-        confirmed = await confirm_change(
-            ctx,
-            action="DELETE",
-            entity_type=helper_type,
-            identifier=entity_id,
-            config=preview,
-            skip_confirm=skip_confirm,
-        )
-        if not confirmed:
-            return json.dumps({"status": "cancelled", "message": "Delete cancelled by user"})
-
         ws, _rest = get_clients(ctx)
+        try:
+            _check_domain(helper_type, entity_id)
+            current = await _resolve_storage_item(ws, helper_type, entity_id)
+        except HelperError as exc:
+            return json.dumps({"error": str(exc)})
+
+        if not await confirm_change(
+            ctx, action="DELETE", entity_type=helper_type, identifier=entity_id,
+            config={"entity_id": entity_id, "item": current},
+        ):
+            return json.dumps({"status": "cancelled", "message": "Delete cancelled by user"})
 
         try:
             result = await ws.send_command(
-                f"{helper_type}/delete",
-                **{helper_type + "_id": entity_id},
+                f"{helper_type}/delete", **{f"{helper_type}_id": current["id"]}
             )
-            return json.dumps({"status": "deleted", "entity_id": entity_id, "result": result}, indent=2)
         except Exception as exc:
             logger.error("Failed to delete %s '%s': %s", helper_type, entity_id, exc)
             return json.dumps({"error": str(exc)})
+        return json.dumps({"status": "deleted", "entity_id": entity_id, "result": result}, indent=2)

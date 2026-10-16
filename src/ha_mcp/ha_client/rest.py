@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import quote
 
 import aiohttp
+from urllib.parse import quote
 
 from ha_mcp.ha_client.models import (
     HAAuthError,
@@ -17,6 +18,14 @@ from ha_mcp.ha_client.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _seg(value: str) -> str:
+    """Quote one URL path segment; refuse values that would escape it."""
+    value = str(value)
+    if not value or value in (".", "..") or "/" in value or "\\" in value:
+        raise HAValidationError(f"Invalid identifier: {value!r}")
+    return quote(value, safe=":+")
 
 
 class HARestClient:
@@ -107,7 +116,7 @@ class HARestClient:
 
     async def get_state(self, entity_id: str) -> dict:
         """GET /api/states/{entity_id} – return a single entity state."""
-        return await self._request("GET", f"/api/states/{entity_id}")
+        return await self._request("GET", f"/api/states/{_seg(entity_id)}")
 
     # ------------------------------------------------------------------
     # History / logging
@@ -122,7 +131,7 @@ class HARestClient:
         """GET /api/history/period/{timestamp} with optional query params."""
         path = "/api/history/period"
         if start_time:
-            path = f"{path}/{start_time}"
+            path = f"{path}/{_seg(start_time)}"
 
         params: dict[str, str] = {}
         if entity_id:
@@ -141,7 +150,7 @@ class HARestClient:
         """GET /api/logbook/{timestamp} with optional query params."""
         path = "/api/logbook"
         if start_time:
-            path = f"{path}/{start_time}"
+            path = f"{path}/{_seg(start_time)}"
 
         params: dict[str, str] = {}
         if entity_id:
@@ -211,7 +220,7 @@ class HARestClient:
     async def reload_config_entry(self, entry_id: str) -> dict:
         """POST /api/config/config_entries/entry/{entry_id}/reload."""
         return await self._request(
-            "POST", f"/api/config/config_entries/entry/{entry_id}/reload"
+            "POST", f"/api/config/config_entries/entry/{_seg(entry_id)}/reload"
         )
 
     async def set_config_entry_disabled(
@@ -223,8 +232,51 @@ class HARestClient:
         """
         return await self._request(
             "POST",
-            f"/api/config/config_entries/entry/{entry_id}/disable",
+            f"/api/config/config_entries/entry/{_seg(entry_id)}/disable",
             json={"disabled_by": disabled_by},
+        )
+
+    async def delete_config_entry(self, entry_id: str) -> dict:
+        """DELETE /api/config/config_entries/entry/{entry_id}."""
+        return await self._request(
+            "DELETE", f"/api/config/config_entries/entry/{_seg(entry_id)}"
+        )
+
+    # ------------------------------------------------------------------
+    # Data entry flows (config, options, subentry)
+    # ------------------------------------------------------------------
+
+    _FLOW_BASES = {
+        "config": "/api/config/config_entries/flow",
+        "options": "/api/config/config_entries/options/flow",
+        "subentry": "/api/config/config_entries/subentries/flow",
+    }
+
+    async def get_flow_handlers(self, handler_type: str | None = None) -> list:
+        """GET /api/config/config_entries/flow_handlers[?type=integration|helper]."""
+        params = {"type": handler_type} if handler_type else None
+        return await self._request(
+            "GET", "/api/config/config_entries/flow_handlers", params=params
+        )
+
+    async def start_flow(self, kind: str, payload: dict) -> dict:
+        """POST to the flow index view of *kind* (config/options/subentry)."""
+        return await self._request("POST", self._FLOW_BASES[kind], json=payload)
+
+    async def get_flow(self, kind: str, flow_id: str) -> dict:
+        """GET the current step of a flow."""
+        return await self._request("GET", f"{self._FLOW_BASES[kind]}/{_seg(flow_id)}")
+
+    async def continue_flow(self, kind: str, flow_id: str, user_input: dict) -> dict:
+        """POST user input to the current step of a flow."""
+        return await self._request(
+            "POST", f"{self._FLOW_BASES[kind]}/{_seg(flow_id)}", json=user_input
+        )
+
+    async def abort_flow(self, kind: str, flow_id: str) -> dict:
+        """DELETE a flow in progress."""
+        return await self._request(
+            "DELETE", f"{self._FLOW_BASES[kind]}/{_seg(flow_id)}"
         )
 
     # ------------------------------------------------------------------
@@ -234,19 +286,19 @@ class HARestClient:
     async def get_automation_config(self, automation_id: str) -> dict:
         """GET /api/config/automation/config/{id}."""
         return await self._request(
-            "GET", f"/api/config/automation/config/{automation_id}"
+            "GET", f"/api/config/automation/config/{_seg(automation_id)}"
         )
 
     async def save_automation_config(self, automation_id: str, config: dict) -> None:
         """POST /api/config/automation/config/{id}."""
         await self._request(
-            "POST", f"/api/config/automation/config/{automation_id}", json=config
+            "POST", f"/api/config/automation/config/{_seg(automation_id)}", json=config
         )
 
     async def delete_automation_config(self, automation_id: str) -> None:
         """DELETE /api/config/automation/config/{id}."""
         await self._request(
-            "DELETE", f"/api/config/automation/config/{automation_id}"
+            "DELETE", f"/api/config/automation/config/{_seg(automation_id)}"
         )
 
     # ------------------------------------------------------------------
@@ -256,19 +308,19 @@ class HARestClient:
     async def get_script_config(self, script_id: str) -> dict:
         """GET /api/config/script/config/{id}."""
         return await self._request(
-            "GET", f"/api/config/script/config/{script_id}"
+            "GET", f"/api/config/script/config/{_seg(script_id)}"
         )
 
     async def save_script_config(self, script_id: str, config: dict) -> None:
         """POST /api/config/script/config/{id}."""
         await self._request(
-            "POST", f"/api/config/script/config/{script_id}", json=config
+            "POST", f"/api/config/script/config/{_seg(script_id)}", json=config
         )
 
     async def delete_script_config(self, script_id: str) -> None:
         """DELETE /api/config/script/config/{id}."""
         await self._request(
-            "DELETE", f"/api/config/script/config/{script_id}"
+            "DELETE", f"/api/config/script/config/{_seg(script_id)}"
         )
 
     # ------------------------------------------------------------------
@@ -278,19 +330,19 @@ class HARestClient:
     async def get_scene_config(self, scene_id: str) -> dict:
         """GET /api/config/scene/config/{id}."""
         return await self._request(
-            "GET", f"/api/config/scene/config/{scene_id}"
+            "GET", f"/api/config/scene/config/{_seg(scene_id)}"
         )
 
     async def save_scene_config(self, scene_id: str, config: dict) -> None:
         """POST /api/config/scene/config/{id}."""
         await self._request(
-            "POST", f"/api/config/scene/config/{scene_id}", json=config
+            "POST", f"/api/config/scene/config/{_seg(scene_id)}", json=config
         )
 
     async def delete_scene_config(self, scene_id: str) -> None:
         """DELETE /api/config/scene/config/{id}."""
         await self._request(
-            "DELETE", f"/api/config/scene/config/{scene_id}"
+            "DELETE", f"/api/config/scene/config/{_seg(scene_id)}"
         )
 
     # ------------------------------------------------------------------
@@ -303,6 +355,6 @@ class HARestClient:
         """POST /api/services/{domain}/{service} – call a HA service."""
         return await self._request(
             "POST",
-            f"/api/services/{domain}/{service}",
+            f"/api/services/{_seg(domain)}/{_seg(service)}",
             json=data or {},
         )
