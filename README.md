@@ -9,6 +9,40 @@ automation traces, and manages backups.
 It is aimed at configuration, not day-to-day device control. The generic
 `call_service` tool is off by default.
 
+To test, ask your agent:
+"List the tools you have available for Home Assistant."
+
+"What is the current state of my Home Assistant entities?"
+
+"Check my Home Assistant logs for any recent automation failures."
+
+Stop the Agent's Behavior
+In your VS Code chat, give the agent a strict system instruction to stop hitting the web API. Tell it:
+"Stop attempting to access the Home Assistant REST API, login flows, or web interface directly. You do not have browser credentials. You must only interact with Home Assistant using the available MCP server tools."
+
+Redirect the agent to use MCP
+You can correct the AI's behavior by telling it to stop trying to bypass the system. Reply with:
+"Do not try to hit the Home Assistant REST API directly. You are connected to the Home Assistant MCP server. Please use the MCP tools provided to you to check the current entity states or call services to diagnose the issue."
+
+"Stop attempting to log into Home Assistant via the web auth flow. I have provided my Long-Lived Access Token in the .env file under HA_TOKEN, and my local URL under HA_URL. For any direct REST API calls you need to make to Home Assistant, read this .env file and pass the token as a Bearer token in the Authorization header."
+
+1. The Discovery Prompt (Start here)
+This forces the agent to read its available MCP capabilities and confirms it sees the trace tools.
+
+"List all the Home Assistant MCP tools you currently have available for reading automations, logs, and traces. Do not execute them yet, just tell me their names and what they do."
+
+2. The Specific Trace Prompt
+Once you know the connection is active, trigger an automation in your house (like your garage door or a smart plug) so there is a fresh trace, then use this prompt:
+
+"Fetch the latest trace for automation.[insert_your_automation_name_here]. Analyze the execution path and tell me if it completed successfully or if it stopped at a specific condition."
+
+3. The Open-Ended Debugging Prompt
+If you have an automation that has been failing, you can let the agent do the heavy lifting:
+
+"Use your Home Assistant tools to check for any recent automation failures. Fetch the trace data for the failed run, read the corresponding YAML configuration for that automation, and explain exactly which step caused the failure."
+
+If the agent successfully returns the JSON trace tree or describes the step-by-step execution path (e.g., "It passed the time trigger but stopped at the state condition"), your MCP server is fully configured and working perfectly.
+
 ## Features
 
 - **Registry queries** -- list and search devices, entities, areas,
