@@ -6,6 +6,7 @@ import logging
 from fastmcp import Context
 
 from ha_mcp.util.context import get_clients
+from ha_mcp.util.redact import redact, tail
 
 logger = logging.getLogger(__name__)
 
@@ -108,15 +109,14 @@ def register_state_tools(mcp_server):
     async def get_error_log(ctx: Context) -> str:
         """Get the Home Assistant error log.
 
-        Returns the raw text content of the Home Assistant error log, which
-        contains warnings, errors, and debug messages from the system and
-        integrations.
+        Returns the most recent ~20 KB of the raw Home Assistant log, with
+        tokens, passwords, API keys and URL credentials redacted.
 
-        This is useful for diagnosing problems with integrations, automations,
-        or the Home Assistant system itself.
+        Prefer get_system_log for a deduplicated, structured list of errors;
+        use this when you need the raw surrounding log lines.
         """
         _ws, rest = get_clients(ctx)
-        return await rest.get_error_log()
+        return redact(tail(str(await rest.get_error_log())))
 
     @mcp_server.tool()
     async def render_template(ctx: Context, template: str) -> str:

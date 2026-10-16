@@ -1,6 +1,7 @@
 """Configuration module for the Home Assistant MCP Server."""
 
 import logging
+from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import field_validator
@@ -15,9 +16,13 @@ class Settings(BaseSettings):
     ha_url: str = "http://homeassistant.local:8123"
     ha_token: str = ""
     transport: str = "stdio"
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8099
-    skip_confirm_default: bool = False
+    api_key: str = ""
+    allow_unauthenticated: bool = False
+    confirm_mode: Literal["client", "elicit"] = "client"
+    read_only: bool = False
+    enable_device_control: bool = False
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(env_prefix="HA_MCP_")
